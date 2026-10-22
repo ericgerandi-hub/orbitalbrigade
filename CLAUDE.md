@@ -13,7 +13,8 @@ Deutsches 3D-Browserspiel (three.js r128), Koop-Mehrspieler über PeerJS. Live: 
 1. In `src/ob-mp.js` die `GAME_VER` hochzählen (z. B. `2026-10-22d` → `2026-10-22e`), damit beide Spieler dieselbe Version haben und der Browser-Cache umgangen wird.
 2. `python3 src/build-site.py`
 3. Commit und Push auf `main`. GitHub Pages veröffentlicht automatisch.
-4. Nach 1–2 Minuten prüfen, dass die neue `GAME_VER` online ist (WebFetch auf `…/orbitalbrigade/ob-mp.js`), und dem Nutzer Bescheid geben: Seite mit Strg+F5 neu laden.
+4. Warten, bis die Pages-Veröffentlichung fertig ist (`gh run list -L 1`, Commit muss „completed success“ sein), und dem Nutzer Bescheid geben: Seite mit Strg+F5 neu laden.
+5. Am Ende jeder Antwort nach einer Änderung immer den Spiel-Link mitschicken: https://ericgerandi-hub.github.io/orbitalbrigade/
 
 ## Hinweise
 - Alles, was der Nutzer sieht, auf Deutsch.
