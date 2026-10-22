@@ -8,7 +8,7 @@
    Fähigkeiten über seine eigene Presence zurück.
    ========================================================= */
 const NAME_KEY='orbitalbrigade-name';
-const GAME_VER='2026-10-23a';
+const GAME_VER='2026-10-23b';
 const ET_KEYS=Object.keys(ET),ST_KEYS=['sentry','wall','minen','moerser','kaserne','ring','graeber'],SC_KEYS=['rifle','flamer','rpg','sniper'];
 const ANT_ST=['swarm','form','body','scatter','flood','dying','gone'],EV_KEYS=['meteor','supply','blackout','frenzy','gold'];
 $('bMP').hidden=!window.OB_NET;
@@ -181,7 +181,7 @@ function readAbilities(P){
 function myInputs(){
   const aimP=hold||mouse.p;
   return{aim:aimP?[r1(aimP.x),r1(aimP.z)]:null,f:hold&&!run.placing?1:0,wp:WEAPON_IDS.indexOf(run.sel),
-    ab:ABILITY_IDS.map(i=>MP.ab[i]||0),tw:turrets.length,ag:MP.again||0,mk:MP.mk||null,pt:Math.round(performance.now()),pe:MP.peT||0,pd:MP.peAt?Math.round(performance.now()-MP.peAt):0,wl:run.weapons.map(w=>WEAPON_IDS.indexOf(w)),o:run.order,om:run.mechOrder,mo:run.marOrder,cm:cmdSnap(),zo:zombieSnap(),fx:MP.fx.slice(-25),v:GAME_VER};
+    ab:ABILITY_IDS.map(i=>MP.ab[i]||0),tw:turrets.length,by:MP.buys||[],ag:MP.again||0,mk:MP.mk||null,pt:Math.round(performance.now()),pe:MP.peT||0,pd:MP.peAt?Math.round(performance.now()-MP.peAt):0,wl:run.weapons.map(w=>WEAPON_IDS.indexOf(w)),o:run.order,om:run.mechOrder,mo:run.marOrder,cm:cmdSnap(),zo:zombieSnap(),fx:MP.fx.slice(-25),v:GAME_VER};
 }
 
 /* ---------- Host ---------- */
@@ -214,7 +214,7 @@ function hostApplyGuest(P,dt){
   if(['attack','hold','retreat','auto'].includes(P.mo))MP.peerMarOrder=P.mo;
   if(Array.isArray(P.rq))for(const q of P.rq){if(!q||typeof q.i!=='number'||q.i<=MP.rqSeen)continue;MP.rqSeen=q.i;
     if(q.k==='rep'){const mx=R('basis','maxhp');run.hp=Math.min(mx,run.hp+mx*.25);for(const s of structs)if(s.hp>0&&s.max>1)s.hp=Math.min(s.max,s.hp+s.max*.5);blast(BASE.clone().setY(.3),0x7cf0a8,10,.8,true);domeHit=1}
-    else if(q.k==='bu'&&ITEMS.basis.stats.includes(q.s)){const L=runLv(run,'basis',q.s);if(L<STAT[q.s].rMax){run.lv[lvKey('basis',q.s)]=L+1;afterUpgrade('basis',q.s,1);toast(MP.partnerName+' hat den Generator verbessert: '+STAT[q.s].n);if(phase==='shop')renderRunShop()}}
+    else if(q.k==='bu'&&ITEMS.basis.stats.includes(q.s)){const L=runLv(run,'basis',q.s);if(L<STAT[q.s].rMax){run.lv[lvKey('basis',q.s)]=L+1;afterUpgrade('basis',q.s,1);if(phase==='shop')renderRunShop()}}
     else if(q.k==='rally'){for(const u of soldiers.concat(mechs,marines))if(!u.dead&&(u.own||0)===1)u.hp=Math.min(u.max,u.hp+u.max*.4)}}
   applyFx(P.fx,'fxSeenP');
   if(P.mw&&typeof P.mw==='object'){const js=JSON.stringify(P.mw);if(js!==MP.mwSeen){MP.mwSeen=js;const pk=cleanMech(P.mw);for(const m of mechs)if(m.own===1)applyMechPack(m,pk)}}
@@ -471,7 +471,8 @@ function mpTick(dt,t){
   // Ping: Laufzeit hin und zurück, ohne die Wartezeit beim Mitspieler
   if(pt&&typeof pt.presence.pt==='number'&&pt.presence.pt!==MP.peT){MP.peT=pt.presence.pt;MP.peAt=now}
   if(pt&&typeof pt.presence.pe==='number'&&pt.presence.pe>0&&pt.presence.pe!==MP.pingSeen){MP.pingSeen=pt.presence.pe;const rtt=now-pt.presence.pe-num(pt.presence.pd,0,5000);if(rtt>=0&&rtt<10000)MP.ping=MP.ping==null?rtt:MP.ping*.7+rtt*.3}
-  MP.pingT=(MP.pingT||0)-dt;if(MP.pingT<=0){MP.pingT=.5;showPing();if(phase==='menu')renderLobby()}
+  if(pt&&Array.isArray(pt.presence.by))readBuys(pt.presence.by);
+  MP.pingT=(MP.pingT||0)-dt;if(MP.pingT<=0){MP.pingT=.5;showPing();showFeed();if(phase==='menu')renderLobby()}
   if(run&&phase!=='menu'&&MP.P&&MP.P.id===MP.runId){
     const mk=MP.P.mk;if(Array.isArray(mk)&&mk[1]!==MP.mkSeen){MP.mkSeen=mk[1];const e=enemies.find(x=>x.id===mk[0]&&!x.dead);if(e){markEnemy(e,1);toast(MP.partnerName+' hat einen Gegner markiert')}}MP.pup.d=MP.P.cm||null;applyZombiePuppets(MP.P.zo,dt)}
   puppetTick(dt,t);
@@ -565,4 +566,22 @@ function showPing(){
   el.hidden=false;const v=MP.ping;
   $('hPingVal').textContent=v==null?'Ping …':'Ping '+Math.round(v)+' ms';
   el.classList.toggle('mid',v!=null&&v>=80&&v<160);el.classList.toggle('bad',v!=null&&v>=160);
+}
+
+/* ---------- Käufe des Mitspielers im Upgrade-Menü (kleine Zeile) ---------- */
+function mpBought(txt){MP.buys=MP.buys||[];MP.buySeq=(MP.buySeq||0)+1;MP.buys.push([MP.buySeq,run?run.wave:0,String(txt).slice(0,40)]);if(MP.buys.length>8)MP.buys.shift()}
+function readBuys(by){
+  MP.peerBuys=MP.peerBuys||[];let neu=false;
+  for(const b of by){if(!Array.isArray(b)||typeof b[0]!=='number'||b[0]<=(MP.buySeen||0))continue;MP.buySeen=b[0];MP.peerBuys.push({w:num(b[1],0,1e6),t:String(b[2]||'').replace(/[<>&]/g,'').slice(0,40),at:performance.now()});neu=true}
+  if(MP.peerBuys.length>8)MP.peerBuys.splice(0,MP.peerBuys.length-8);
+  if(neu)showFeed();
+}
+function showFeed(){
+  const f=$('mpFeed');if(!MP||!run){f.hidden=true;return}
+  if(MP.feedPh==='shop'&&phase!=='shop')MP.feedFrom=performance.now();MP.feedPh=phase;
+  const list=(MP.peerBuys||[]).filter(b=>b.at>=(MP.feedFrom||0)).slice(-4).reverse();
+  if(!list.length){f.hidden=true;return}
+  f.hidden=false;const now=performance.now();
+  f.innerHTML='<b></b> '+list.map(b=>`<span class="${now-b.at<2500?'new':''}">${b.t}</span>`).join(' · ');
+  f.querySelector('b').textContent=(MP.partnerName||'Mitspieler')+':';
 }

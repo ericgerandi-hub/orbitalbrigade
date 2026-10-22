@@ -1588,7 +1588,7 @@ function showLevelUp(){
   showOv('ovLevel');
 }
 function pickLevel(c){
-  if(c.type==='weapon'){run.weapons.push(c.id);toast(ITEMS[c.id].name+' an Bord');buildSlots()}
+  if(c.type==='weapon'){run.weapons.push(c.id);toast(ITEMS[c.id].name+' an Bord');buildSlots();if(MP)mpBought('Neue Waffe: '+ITEMS[c.id].short)}
   else if(c.type==='up'){run.lv[lvKey(c.id,c.k)]=(run.lv[lvKey(c.id,c.k)]||0)+1;afterUpgrade(c.id,c.k,1)}
   else run.credits+=100*run.mult;
   run.pending--;
@@ -1723,6 +1723,7 @@ function statRow(id,k,mode){
   b.disabled=full||money<cost;
   b.onclick=()=>{
     if(mode==='run'){if(run.credits<cost)return;run.credits-=cost;run.lv[lvKey(id,k)]=r+1;SFX.buy();
+      if(MP)mpBought(ITEMS[id].short+' · '+st.n+' '+(r+1));
       if(MP&&MP.role==='guest'&&id==='basis')mpRequest('bu',k);else afterUpgrade(id,k,1);renderRunShop();updHud()}
     else{if(M.medals<cost)return;M.medals-=cost;M.lv[lvKey(id,k)]=m+1;SFX.buy();saveMeta();renderMeta()}
   };
