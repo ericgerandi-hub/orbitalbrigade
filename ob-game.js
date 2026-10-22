@@ -1949,9 +1949,16 @@ cv.addEventListener('pointermove',ev=>{
 cv.addEventListener('pointerleave',ev=>{if(ev.pointerType==='mouse'&&!hold)mouse.p=null});
 ['pointerup','pointercancel','lostpointercapture'].forEach(n=>cv.addEventListener(n,ev=>{hold=null;steer.boost=false;if(guided&&ev.pointerType!=='mouse'){steer.x=steer.y=0;$('rkDot').style.left=$('rkDot').style.top='50%'}}));
 addEventListener('keyup',e=>{if(e.key===' ')steer.kb=false});
+/* Zoom mit dem Mausrad: hinein auf den Mauszeiger, heraus bis etwas über die normale Ansicht */
+let zoom=1,zoomWant=1;const ZOOM_MIN=.35,ZOOM_MAX=1.3,zoomFocus=new THREE.Vector3();
+function zoomBy(f,ev){
+  if(!run||guided)return;
+  const before=zoomWant;zoomWant=Math.max(ZOOM_MIN,Math.min(ZOOM_MAX,zoomWant*f));
+  if(ev&&f<1){const p=groundAt(ev);if(p){const k=before>=1?1:.5;zoomFocus.lerp(p.setY(0),k)}}
+}
 cv.addEventListener('wheel',ev=>{
-  if(!run||!play()||run.weapons.length<2)return;ev.preventDefault();
-  const i=run.weapons.indexOf(run.sel),n=run.weapons.length;selWeapon(run.weapons[(i+(ev.deltaY>0?1:-1)+n)%n]);
+  if(!run||guided)return;ev.preventDefault();
+  const d=Math.max(-3,Math.min(3,ev.deltaY/(ev.deltaMode?1:100)));zoomBy(Math.pow(1.13,d),ev);
 },{passive:false});
 addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
@@ -1971,6 +1978,8 @@ addEventListener('keydown',e=>{
   if(!run||!play()||halted||e.repeat||e.ctrlKey||e.metaKey||e.altKey)return;
   if(/^[1-7]$/.test(k)){const id=run.weapons[+k-1];if(id)selWeapon(id);return}
   if(k==='o'){$('ordToggle').click();return}
+  if(k==='+'||k==='='){zoomBy(1/1.15);return}
+  if(k==='-'){zoomBy(1.15);return}
   const ORD={x:'attack',c:'retreat',v:'auto',b:'hold'};
   if(ORD[k]){(e.shiftKey?setMechOrder:setOrder)(ORD[k]);return}
   if(k==='k'){useCmdAbility();return}
@@ -1995,11 +2004,16 @@ function update(dt,t){
   {const tk=run&&!run.tut?fieldTargetK(run.wave):1;FIELD_K+=(tk-FIELD_K)*Math.min(1,dt*1.2);
    const fd=fieldDims();camLook.set(LOOK.x,LOOK.y,LOOK.z+(fd.ZF-36)*.45);
    camera.position.copy(CAM).sub(LOOK).multiplyScalar(FIELD_K).add(camLook);}
-  if(shake>0)camera.position.add(tmp.set((rnd()-.5)*shake,(rnd()-.5)*shake,0));
   camera.lookAt(camLook);
+  // Sichtbarkeit immer mit der normalen Kamera, damit Zoomen das Spiel nicht verändert
+  if(run&&play()&&!halted&&!guided)updateOnScreen();
+  {if(!run)zoomWant=1;zoom+=(zoomWant-zoom)*Math.min(1,dt*8);
+   const zf=Math.max(0,(1-zoom)/(1-ZOOM_MIN)),look=tmp2.copy(camLook).lerp(zoomFocus,zf*.85);
+   camera.position.copy(CAM).sub(LOOK).multiplyScalar(FIELD_K*zoom).add(look);
+   if(shake>0)camera.position.add(tmp.set((rnd()-.5)*shake,(rnd()-.5)*shake,0));
+   camera.lookAt(look);}
   if(guided)guidedCamera();
   env.t=(env.t+dt/(run&&play()&&!halted?300:900))%1;updateEnv(dt);SFX.ambient(dt,env);
-  if(run&&play()&&!halted&&!guided)updateOnScreen();
   updateFx(dt);updateTracers(dt);updateMarks(dt,t);
   // Terraforming: ab Welle 10 wird der Planet grüner, voll grün ab etwa Welle 55
   {const target=run&&!run.tut?Math.max(0,Math.min(1,(run.wave-10+(phase==='fight'?Math.min(1,waveT/45):0))/45)):0;
