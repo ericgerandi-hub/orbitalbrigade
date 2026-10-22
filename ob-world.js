@@ -545,6 +545,15 @@ function makeMarine(){
   box(.24,.32,.55,orangeMat,0,0,0,saw);const blade=box(.07,.24,1.15,sawMat,0,0,.8,saw);box(.09,.05,1.15,darkMat,0,.13,.8,saw);
   g.scale.setScalar(1.4);return{g,body,saw,blade,shield};
 }
+/* ---------- Markierung über einem Gegner ---------- */
+function makeMarker(col){
+  const g=new THREE.Group(),m=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.9,depthWrite:false,side:THREE.DoubleSide,fog:false});
+  const ring=new THREE.Mesh(new THREE.RingGeometry(.85,1,32),m);ring.rotation.x=-Math.PI/2;ring.position.y=.08;g.add(ring);
+  const arrow=new THREE.Group();g.add(arrow);
+  const cone=new THREE.Mesh(new THREE.ConeGeometry(.55,1.1,4),m);cone.rotation.x=Math.PI;arrow.add(cone);
+  const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false}));gl.scale.set(2.6,2.6,1);arrow.add(gl);
+  g.userData={ring,arrow};return g;
+}
 const ANT_MAX=720;
 const antGeo=(()=>{const g=new THREE.SphereGeometry(.13,6,4);g.scale(1,.55,1.9);return g})();
 const antMat=new THREE.MeshStandardMaterial({color:0x6a2a16,roughness:.5,emissive:0x2a0a04});

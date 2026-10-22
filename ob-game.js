@@ -1246,6 +1246,29 @@ function autoAbilities(dt){
   for(const id of ABILITY_IDS){if(!autoAb[id]||id==='rakete'||!M.unlocked[id]||(run.cd[id]||0)>0)continue;if(useAbility(id,true))break}
 }
 
+/* ---------- Gegner markieren (mittlere Maustaste) ---------- */
+let marks=[];
+function markEnemy(e,own){
+  marks=marks.filter(m=>{if(m.own===own||m.e===e&&m.own===own){scene.remove(m.g);return false}return true});
+  if(!e||e.dead)return;
+  const g=makeMarker(own?0x5fd0ff:0xffd23f);scene.add(g);marks.push({e,own,g,t:0});SFX.mark(!own);
+}
+function markedTarget(){for(const m of marks)if(m.own===0&&visible(m.e))return m.e;for(const m of marks)if(visible(m.e))return m.e;return null}
+function updateMarks(dt,t){
+  for(const m of marks){
+    m.t+=dt;const e=m.e;if(e.dead||m.t>15){m.gone=true;continue}
+    const p=e.g.position,s=e.r*1.15;m.g.position.set(p.x,0,p.z);
+    m.g.userData.ring.scale.setScalar(s*(1+Math.sin(t*6)*.06));m.g.userData.ring.rotation.z=t*1.5;
+    m.g.userData.arrow.position.y=2.2*e.T.s+1.4+Math.sin(t*5)*.3;m.g.userData.arrow.rotation.y=t*2;
+  }
+  marks=marks.filter(m=>{if(!m.gone)return true;scene.remove(m.g);return false});
+}
+function tryMark(p){
+  let best=null,bd=1e9;for(const e of enemies){if(!visible(e))continue;const d=dist2D(e.g.position,p)-e.r;if(d<bd&&d<3){bd=d;best=e}}
+  if(!best){toast('Kein Gegner an dieser Stelle');return}
+  markEnemy(best,0);if(MP)MP.mk=[best.id,(MP.mk?MP.mk[1]:0)+1];
+}
+
 function rebuildRing(){
   const lvl=Math.round(R('basis','ring'));if(lvl<=0)return;
   for(let k=0;k<5;k++){
@@ -1462,6 +1485,7 @@ function clearAll(){
   jets.forEach(j=>scene.remove(j.g));jets=[];
   shots.forEach(s=>scene.remove(s.m));shots=[];
   zones.forEach(z=>scene.remove(z.m));zones=[];
+  marks.forEach(m=>scene.remove(m.g));marks=[];
   later=[];laser.on=0;act.luft=act.barrage=null;beam.visible=laserHit.visible=false;
   laser2.on=0;actR.luft=actR.barrage=null;beam2.visible=laserHit2.visible=false;
   hold=null;$('boss').hidden=true;removeSupply();endGuided();$('app').classList.remove('blackout');
@@ -1902,7 +1926,9 @@ function groundAt(ev){
   clampField(p);p.y=.5;return p;
 }
 cv.addEventListener('contextmenu',ev=>ev.preventDefault());
+cv.addEventListener('mousedown',ev=>{if(ev.button===1)ev.preventDefault()});
 cv.addEventListener('pointerdown',ev=>{
+  if(ev.button===1&&run&&play()&&!halted&&!guided){ev.preventDefault();const p=groundAt(ev);if(p)tryMark(p);return}
   if(guided&&run&&play()&&!halted){if(ev.button===2){detonateGuided();return}setSteer(ev);steer.boost=ev.pointerType==='mouse';try{cv.setPointerCapture(ev.pointerId)}catch(e){}return}
   if(!run||!play()||halted)return;const p=groundAt(ev);if(!p)return;
   if(ev.pointerType==='mouse')mouse.p=p;
@@ -1972,7 +1998,7 @@ function update(dt,t){
   if(guided)guidedCamera();
   env.t=(env.t+dt/(run&&play()&&!halted?300:900))%1;updateEnv(dt);SFX.ambient(dt,env);
   if(run&&play()&&!halted&&!guided)updateOnScreen();
-  updateFx(dt);updateTracers(dt);
+  updateFx(dt);updateTracers(dt);updateMarks(dt,t);
   // Terraforming: ab Welle 10 wird der Planet grüner, voll grün ab etwa Welle 55
   {const target=run&&!run.tut?Math.max(0,Math.min(1,(run.wave-10+(phase==='fight'?Math.min(1,waveT/45):0))/45)):0;
    const cur=terraShown<0?0:terraShown,diff=target-cur;
@@ -2004,7 +2030,7 @@ function update(dt,t){
   if(!run.placing&&!guided){
     if(hold&&canFire(run.sel))fireWeapon(run.sel,hold.clone());
     // Langsames Auto-Feuer: jede Waffe schießt für sich, außer die gerade von Hand gefeuerte
-    if(!run.tut){const f=frontEnemy();run.auto=run.auto||{};
+    if(!run.tut){const f=markedTarget()||frontEnemy();run.auto=run.auto||{};
       for(const id of run.weapons){
         if(hold&&id===run.sel)continue;
         run.auto[id]=(run.auto[id]||0)-dt;

@@ -100,6 +100,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 .place button{background:none;border:1px solid var(--line);border-radius:3px;padding:5px 9px;cursor:pointer;flex:none}
 .toast{position:absolute;z-index:20;left:8px;right:92px;top:58px;margin:0 auto;width:max-content;max-width:calc(100% - 100px);background:rgba(24,29,44,.95);border:1px solid var(--line);border-radius:4px;padding:6px 10px;font-size:13px;pointer-events:none;opacity:0;transition:opacity .25s}
 .toast.show{opacity:1}
+.ping{position:absolute;z-index:4;left:10px;top:48px;display:flex;align-items:center;gap:6px;background:rgba(24,29,44,.85);border:1px solid var(--line);border-radius:4px;padding:3px 8px;font-size:12px;font-variant-numeric:tabular-nums;pointer-events:none}
+.ping i{width:8px;height:8px;border-radius:50%;background:var(--good)}
+.ping.mid i{background:var(--yellow)}.ping.bad i{background:#ff6a3d}
 .boss{position:absolute;z-index:4;left:12px;right:96px;top:10px;display:flex;flex-direction:column;gap:4px;pointer-events:none}
 .boss .lbl{color:var(--alien)}
 .boss .bar i{background:var(--alien)}
@@ -300,6 +303,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
     </div>
     <div class="place" id="place" hidden><span id="placeText">Tippe auf den Boden</span><button id="placeCancel">Abbrechen</button></div>
     <div class="toast" id="toast"></div>
+    <div class="ping" id="hPing" hidden><i></i><span id="hPingVal">– ms</span></div>
     <div class="boss" id="boss" hidden><span class="lbl" id="bossName">Brutkönigin</span><div class="bar"><i id="bossBar"></i></div></div>
     <div class="banner" id="banner"></div>
     <div class="flash" id="flash"></div>
@@ -405,6 +409,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
         <span class="kbd">O</span><span>Befehlsleiste ein- oder ausklappen</span>
         <span class="kbd">Rechte Maustaste</span><span>Kommandant hierhin schicken, beim Platzieren: abbrechen</span>
         <span class="kbd">K</span><span>Fähigkeit des Kommandanten</span>
+        <span class="kbd">Mittlere Maustaste</span><span>Gegner markieren: dein Mitspieler sieht die Markierung, und deine Waffen nehmen ihn im Auto-Feuer zuerst ins Visier</span>
         <span class="kbd">Esc / P</span><span>Pause</span>
         <span class="kbd">M</span><span>Ton an oder aus (Lautstärke über den Lautsprecher-Knopf)</span>
       </div>
@@ -471,12 +476,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="ob-data.js?v=2026-10-22c" charset="utf-8"></script>
-<script src="ob-world.js?v=2026-10-22c" charset="utf-8"></script>
-<script src="ob-audio.js?v=2026-10-22c" charset="utf-8"></script>
-<script src="ob-game.js?v=2026-10-22c" charset="utf-8"></script>
+<script src="ob-data.js?v=2026-10-22d" charset="utf-8"></script>
+<script src="ob-world.js?v=2026-10-22d" charset="utf-8"></script>
+<script src="ob-audio.js?v=2026-10-22d" charset="utf-8"></script>
+<script src="ob-game.js?v=2026-10-22d" charset="utf-8"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="ob-net.js?v=2026-10-22c" charset="utf-8"></script>
-<script src="ob-mp.js?v=2026-10-22c" charset="utf-8"></script>
+<script src="ob-net.js?v=2026-10-22d" charset="utf-8"></script>
+<script src="ob-mp.js?v=2026-10-22d" charset="utf-8"></script>
 </body>
 </html>

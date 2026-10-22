@@ -8,7 +8,7 @@
    Fähigkeiten über seine eigene Presence zurück.
    ========================================================= */
 const NAME_KEY='orbitalbrigade-name';
-const GAME_VER='2026-10-22c';
+const GAME_VER='2026-10-22d';
 const ET_KEYS=Object.keys(ET),ST_KEYS=['sentry','wall','minen','moerser','kaserne','ring','graeber'],SC_KEYS=['rifle','flamer','rpg','sniper'];
 const ANT_ST=['swarm','form','body','scatter','flood','dying','gone'],EV_KEYS=['meteor','supply','blackout','frenzy','gold'];
 $('bMP').hidden=!window.OB_NET;
@@ -78,7 +78,7 @@ function renderLobby(){
   const L=$('mpPlayers');L.innerHTML='';
   const add=(n,tag)=>{const li=el('li','',`<b></b><span class="lbl">${tag}</span>`);li.querySelector('b').textContent=n;L.appendChild(li)};
   add(MP.name,MP.role==='host'?'Du · Host':'Du');
-  if(MP.partnerPeer)add(MP.partnerName,MP.role==='host'?'Mitspieler':'Host');
+  if(MP.partnerPeer)add(MP.partnerName,(MP.role==='host'?'Mitspieler':'Host')+(MP.ping!=null?' · Ping '+Math.round(MP.ping)+' ms':''));
   const ctl=$('mpWaves');ctl.innerHTML='';
   if(MP.role==='host'){
     $('mpWait').textContent=MP.partnerPeer?'Wähle die Startwelle, um zu starten.':`Schick deinem Mitspieler den Code ${MP.code}. Er wählt im Menü „Mehrspieler“ und dann „Beitreten“.`;
@@ -102,7 +102,7 @@ function mpStartHost(w){
 function mpLeave(){
   if(!MP)return;
   try{MP.rm.leave()}catch(e){}
-  clearPuppets();MP=null;FS=FS0;
+  clearPuppets();MP=null;FS=FS0;$('hPing').hidden=true;
   ship2.visible=false;label1.visible=label2.visible=false;SHIP_POS.x=2;ship.position.x=2;
 }
 function partnerLost(){
@@ -162,7 +162,7 @@ function readAbilities(P){
 function myInputs(){
   const aimP=hold||mouse.p;
   return{aim:aimP?[r1(aimP.x),r1(aimP.z)]:null,f:hold&&!run.placing?1:0,wp:WEAPON_IDS.indexOf(run.sel),
-    ab:ABILITY_IDS.map(i=>MP.ab[i]||0),tw:turrets.length,wl:run.weapons.map(w=>WEAPON_IDS.indexOf(w)),o:run.order,om:run.mechOrder,mo:run.marOrder,cm:cmdSnap(),zo:zombieSnap(),fx:MP.fx.slice(-25),v:GAME_VER};
+    ab:ABILITY_IDS.map(i=>MP.ab[i]||0),tw:turrets.length,mk:MP.mk||null,pt:Math.round(performance.now()),pe:MP.peT||0,pd:MP.peAt?Math.round(performance.now()-MP.peAt):0,wl:run.weapons.map(w=>WEAPON_IDS.indexOf(w)),o:run.order,om:run.mechOrder,mo:run.marOrder,cm:cmdSnap(),zo:zombieSnap(),fx:MP.fx.slice(-25),v:GAME_VER};
 }
 
 /* ---------- Host ---------- */
@@ -449,7 +449,12 @@ function mpTick(dt,t){
     MP.lastSeen=now;MP.P=pt.presence;
     const nm=cleanName(pt.presence.n);if(nm!==MP.partnerName){MP.partnerName=nm;label2.userData.set(nm,'#5fd0ff');if(phase==='menu')renderLobby()}
   }else if(MP.partnerPeer&&now-MP.lastSeen>4000)partnerLost();
-  if(run&&phase!=='menu'&&MP.P&&MP.P.id===MP.runId){MP.pup.d=MP.P.cm||null;applyZombiePuppets(MP.P.zo,dt)}
+  // Ping: Laufzeit hin und zurück, ohne die Wartezeit beim Mitspieler
+  if(pt&&typeof pt.presence.pt==='number'&&pt.presence.pt!==MP.peT){MP.peT=pt.presence.pt;MP.peAt=now}
+  if(pt&&typeof pt.presence.pe==='number'&&pt.presence.pe>0&&pt.presence.pe!==MP.pingSeen){MP.pingSeen=pt.presence.pe;const rtt=now-pt.presence.pe-num(pt.presence.pd,0,5000);if(rtt>=0&&rtt<10000)MP.ping=MP.ping==null?rtt:MP.ping*.7+rtt*.3}
+  MP.pingT=(MP.pingT||0)-dt;if(MP.pingT<=0){MP.pingT=.5;showPing();if(phase==='menu')renderLobby()}
+  if(run&&phase!=='menu'&&MP.P&&MP.P.id===MP.runId){
+    const mk=MP.P.mk;if(Array.isArray(mk)&&mk[1]!==MP.mkSeen){MP.mkSeen=mk[1];const e=enemies.find(x=>x.id===mk[0]&&!x.dead);if(e){markEnemy(e,1);toast(MP.partnerName+' hat einen Gegner markiert')}}MP.pup.d=MP.P.cm||null;applyZombiePuppets(MP.P.zo,dt)}
   puppetTick(dt,t);
   if(verMismatch()&&!MP.verWarn&&phase!=='menu'){MP.verWarn=true;toast('Ihr habt unterschiedliche Spielversionen. Bitte beide die Seite neu laden.')}
   MP.pubT-=dt;const pub=MP.pubT<=0;if(pub)MP.pubT=1/15;
@@ -459,7 +464,7 @@ function mpTick(dt,t){
       if(Array.isArray(MP.P.fx)&&MP.P.fx.length>=5)MP.fxSeen=MP.P.fx[MP.P.fx.length-5];
       return;
     }
-    if(pub)MP.rm.presence({n:MP.name,r:MP.role==='host'?'h':'g',ph:'l',id:0,v:GAME_VER}).catch(()=>{});
+    if(pub)MP.rm.presence({n:MP.name,r:MP.role==='host'?'h':'g',ph:'l',id:0,v:GAME_VER,pt:Math.round(performance.now()),pe:MP.peT||0,pd:MP.peAt?Math.round(performance.now()-MP.peAt):0}).catch(()=>{});
     return;
   }
   if(!run)return;
@@ -533,4 +538,11 @@ function puppetTick(dt,t){
   if(c.jet){if(Math.hypot(p.x-ox,p.z-oz)>.001)c.g.lookAt(tmp.set(p.x+(p.x-ox)*20,p.y,p.z+(p.z-oz)*20))}
   else{c.g.rotation.y=lerpAngle(c.g.rotation.y,num(o.r,-1e4,1e4)/100,Math.min(1,dt*8));
     if(o.mv){c.walk+=dt*12;c.body.position.y=Math.abs(Math.sin(c.walk))*.08}else c.body.position.y=0}
+}
+
+function showPing(){
+  const el=$('hPing');if(!MP||!MP.partnerPeer){el.hidden=true;return}
+  el.hidden=false;const v=MP.ping;
+  $('hPingVal').textContent=v==null?'Ping …':'Ping '+Math.round(v)+' ms';
+  el.classList.toggle('mid',v!=null&&v>=80&&v<160);el.classList.toggle('bad',v!=null&&v>=160);
 }
