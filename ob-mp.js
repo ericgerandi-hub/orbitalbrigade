@@ -8,7 +8,7 @@
    Fähigkeiten über seine eigene Presence zurück.
    ========================================================= */
 const NAME_KEY='orbitalbrigade-name';
-const GAME_VER='2026-10-22d';
+const GAME_VER='2026-10-22e';
 const ET_KEYS=Object.keys(ET),ST_KEYS=['sentry','wall','minen','moerser','kaserne','ring','graeber'],SC_KEYS=['rifle','flamer','rpg','sniper'];
 const ANT_ST=['swarm','form','body','scatter','flood','dying','gone'],EV_KEYS=['meteor','supply','blackout','frenzy','gold'];
 $('bMP').hidden=!window.OB_NET;
@@ -95,8 +95,27 @@ function mpSetupShips(){
   ship2.position.set(other,SHIP_POS.y,SHIP_POS.z);ship2.rotation.copy(ship.rotation);ship2.scale.copy(ship.scale);ship2.visible=true;
   label1.visible=label2.visible=true;label1.userData.set(MP.name,'#ffd23f');label2.userData.set(MP.partnerName||'Mitspieler','#5fd0ff');
 }
+function guestJoinRun(){
+  MP.again=0;MP.runId=MP.P.id;MP.ebSeen=null;MP.fxSeen=Infinity;MP.ready=0;mpSetupShips();startRun(num(MP.P.st,1,1e6,1));MP.fxSeen=0;
+  if(Array.isArray(MP.P.fx)&&MP.P.fx.length>=5)MP.fxSeen=MP.P.fx[MP.P.fx.length-5];
+}
+/* Nach einer Niederlage zusammen bleiben: beide drücken „Erneut starten“ */
+function mpOverShown(){
+  MP.again=0;$('bToMenu').textContent='Gruppe verlassen';
+  const b=$('bAgain');b.disabled=false;b.textContent='Erneut starten';updOverMP();
+}
+function updOverMP(){
+  const b=$('bAgain'),t=$('overMP'),here=!!MP.partnerPeer;
+  b.hidden=!here;t.hidden=false;
+  if(!here){t.textContent=(MP.partnerName||'Dein Mitspieler')+' hat die Gruppe verlassen.';return}
+  const other=MP.P&&MP.P.ag&&MP.P.ag===MP.runId;
+  if(MP.again){b.disabled=true;b.textContent='Warte auf '+MP.partnerName+' …'}
+  t.textContent=other?MP.partnerName+' ist bereit für die nächste Runde.':'Drückt beide „Erneut starten“, um zusammen weiterzuspielen.';
+}
+$('bAgain').onclick=()=>{if(!MP||!run)return;MP.again=MP.runId;updOverMP()};
 function mpStartHost(w){
   if(!MP||!MP.partnerPeer||verMismatch())return;
+  MP.again=0;MP.wantStart=false;
   MP.runId=1+(rnd()*1e9|0);mpSetupShips();startRun(w);
 }
 function mpLeave(){
@@ -162,7 +181,7 @@ function readAbilities(P){
 function myInputs(){
   const aimP=hold||mouse.p;
   return{aim:aimP?[r1(aimP.x),r1(aimP.z)]:null,f:hold&&!run.placing?1:0,wp:WEAPON_IDS.indexOf(run.sel),
-    ab:ABILITY_IDS.map(i=>MP.ab[i]||0),tw:turrets.length,mk:MP.mk||null,pt:Math.round(performance.now()),pe:MP.peT||0,pd:MP.peAt?Math.round(performance.now()-MP.peAt):0,wl:run.weapons.map(w=>WEAPON_IDS.indexOf(w)),o:run.order,om:run.mechOrder,mo:run.marOrder,cm:cmdSnap(),zo:zombieSnap(),fx:MP.fx.slice(-25),v:GAME_VER};
+    ab:ABILITY_IDS.map(i=>MP.ab[i]||0),tw:turrets.length,ag:MP.again||0,mk:MP.mk||null,pt:Math.round(performance.now()),pe:MP.peT||0,pd:MP.peAt?Math.round(performance.now()-MP.peAt):0,wl:run.weapons.map(w=>WEAPON_IDS.indexOf(w)),o:run.order,om:run.mechOrder,mo:run.marOrder,cm:cmdSnap(),zo:zombieSnap(),fx:MP.fx.slice(-25),v:GAME_VER};
 }
 
 /* ---------- Host ---------- */
@@ -458,12 +477,13 @@ function mpTick(dt,t){
   puppetTick(dt,t);
   if(verMismatch()&&!MP.verWarn&&phase!=='menu'){MP.verWarn=true;toast('Ihr habt unterschiedliche Spielversionen. Bitte beide die Seite neu laden.')}
   MP.pubT-=dt;const pub=MP.pubT<=0;if(pub)MP.pubT=1/15;
+  if(phase==='over'&&run){
+    updOverMP();
+    if(MP.role==='guest'&&MP.again&&MP.P&&(MP.P.ph==='f'||MP.P.ph==='s')&&MP.P.id&&MP.P.id!==MP.runId){guestJoinRun();return}
+    if(MP.role==='host'&&MP.partnerPeer&&MP.again&&MP.again===MP.runId&&MP.P&&MP.P.ag===MP.runId){mpStartHost(run.start);return}
+  }
   if(phase==='menu'){
-    if(MP.role==='guest'&&MP.P&&(MP.P.ph==='f'||MP.P.ph==='s')&&MP.P.id&&MP.P.id!==MP.runId){
-      MP.runId=MP.P.id;MP.ebSeen=null;MP.fxSeen=Infinity;mpSetupShips();startRun(num(MP.P.st,1,1e6,1));MP.fxSeen=0;
-      if(Array.isArray(MP.P.fx)&&MP.P.fx.length>=5)MP.fxSeen=MP.P.fx[MP.P.fx.length-5];
-      return;
-    }
+    if(MP.role==='guest'&&MP.P&&(MP.P.ph==='f'||MP.P.ph==='s')&&MP.P.id&&MP.P.id!==MP.runId){guestJoinRun();return}
     if(pub)MP.rm.presence({n:MP.name,r:MP.role==='host'?'h':'g',ph:'l',id:0,v:GAME_VER,pt:Math.round(performance.now()),pe:MP.peT||0,pd:MP.peAt?Math.round(performance.now()-MP.peAt):0}).catch(()=>{});
     return;
   }

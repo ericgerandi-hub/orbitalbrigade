@@ -1538,6 +1538,8 @@ function endRun(died,title){
   $('overTitle').textContent=title||(died?'Schildgenerator zerstört':'Run beendet');
   const sum=$('overSum');sum.innerHTML='';
   [['Erreichte Welle',run.wave],['Abschüsse',fmt(run.kills)],['Stufe',run.level],['Medaillen verdient',fmt(run.medals)],['Medaillen gesamt',fmt(M.medals)]].forEach(([a,b])=>{sum.appendChild(el('dt','',a));sum.appendChild(el('dd','',String(b)))});
+  $('bAgain').hidden=$('overMP').hidden=true;$('bToMenu').textContent='Zum Menü';
+  if(MP)mpOverShown();
   showOv('ovOver');
 }
 function toMenu(){
