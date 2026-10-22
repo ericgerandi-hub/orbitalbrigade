@@ -299,17 +299,20 @@ function makeLabel(){
 const label1=makeLabel(),label2=makeLabel();label1.position.set(0,6.5,0);label2.position.set(0,6.5,0);ship.add(label1);ship2.add(label2);
 const turretRoot=new THREE.Group();ship.add(turretRoot);
 let turrets=[];
-function buildTurrets(n){
-  turretRoot.clear();turrets=[];
+const turretRoot2=new THREE.Group();ship2.add(turretRoot2);let turrets2=[];
+function buildTurrets(n){turrets=buildTurretsOn(turretRoot,n);aimAll(new THREE.Vector3(0,0,0))}
+function buildTurrets2(n){turrets2=buildTurretsOn(turretRoot2,n);for(const t of turrets2)t.aim.lookAt(0,0,0)}
+function buildTurretsOn(root,n){
+  root.clear();const list=[];
   for(let i=0;i<n;i++){
     const t=new THREE.Group();const z=n===1?2:8-i*(14/(n-1));t.position.set(0,-2.3,z);
     const dome=new THREE.Mesh(new THREE.SphereGeometry(0.8,12,8,0,Math.PI*2,0,Math.PI/2),hullMat);dome.rotation.x=Math.PI;t.add(dome);
     const aim=new THREE.Group();aim.position.y=-0.4;t.add(aim);
     const barrel=new THREE.Mesh(boxGeo(0.28,0.28,2.2),darkMat);barrel.position.z=1.1;aim.add(barrel);
     const tip=new THREE.Object3D();tip.position.z=2.3;aim.add(tip);
-    turretRoot.add(t);turrets.push({aim,tip});
+    root.add(t);list.push({aim,tip});
   }
-  aimAll(new THREE.Vector3(0,0,0));
+  return list;
 }
 function aimAll(p){for(const t of turrets)t.aim.lookAt(p)}
 

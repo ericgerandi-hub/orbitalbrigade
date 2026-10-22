@@ -1675,7 +1675,7 @@ function openRunShop(prep){
   renderRunShop();showOv('ovRun');updHud();
 }
 function runCats(){
-  const c=MP&&MP.role==='guest'?[]:[{id:'basis',label:'Schildgenerator',sub:'Basis'}];
+  const c=[{id:'basis',label:'Schildgenerator',sub:'Basis'}];
   run.weapons.forEach(id=>c.push({id,label:ITEMS[id].name,sub:'Waffe'}));
   ABILITY_IDS.filter(id=>M.unlocked[id]).forEach(id=>c.push({id,label:ITEMS[id].name,sub:'Fähigkeit'}));
   SUPPORT_IDS.filter(id=>M.unlocked[id]).forEach(id=>c.push({id,label:ITEMS[id].name,sub:'Unterstützung'}));
@@ -1696,7 +1696,8 @@ function statRow(id,k,mode){
   const b=el('button','buy',full?'Max':fmt(cost)+(mode==='run'?' Cr':' Med.'));
   b.disabled=full||money<cost;
   b.onclick=()=>{
-    if(mode==='run'){if(run.credits<cost)return;run.credits-=cost;run.lv[lvKey(id,k)]=r+1;SFX.buy();afterUpgrade(id,k,1);renderRunShop();updHud()}
+    if(mode==='run'){if(run.credits<cost)return;run.credits-=cost;run.lv[lvKey(id,k)]=r+1;SFX.buy();
+      if(MP&&MP.role==='guest'&&id==='basis')mpRequest('bu',k);else afterUpgrade(id,k,1);renderRunShop();updHud()}
     else{if(M.medals<cost)return;M.medals-=cost;M.lv[lvKey(id,k)]=m+1;SFX.buy();saveMeta();renderMeta()}
   };
   row.appendChild(b);return row;

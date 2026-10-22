@@ -8,7 +8,7 @@
    Fähigkeiten über seine eigene Presence zurück.
    ========================================================= */
 const NAME_KEY='orbitalbrigade-name';
-const GAME_VER='2026-10-22b';
+const GAME_VER='2026-10-22c';
 const ET_KEYS=Object.keys(ET),ST_KEYS=['sentry','wall','minen','moerser','kaserne','ring','graeber'],SC_KEYS=['rifle','flamer','rpg','sniper'];
 const ANT_ST=['swarm','form','body','scatter','flood','dying','gone'],EV_KEYS=['meteor','supply','blackout','frenzy','gold'];
 $('bMP').hidden=!window.OB_NET;
@@ -123,15 +123,23 @@ function mpNext(){
 }
 
 /* ---------- Kosmetik: Waffen und Fähigkeiten des Mitspielers ---------- */
-function remoteFire(P,shipObj,tipObj,dt){
-  MP.rfT-=dt;
-  if(!P.f||!Array.isArray(P.aim))return;
-  const id=WEAPON_IDS[num(P.wp,0,WEAPON_IDS.length-1)];if(!id||MP.rfT>0)return;
-  MP.rfT=1/Math.min(7,ITEMS[id].base.rate);
-  const aim=new THREE.Vector3(num(P.aim[0],-300,300)/10,.5,num(P.aim[1],-500,500)/10);
-  FS={turrets:[{tip:tipObj}],ship:shipObj,gi:0};COSMETIC=true;
+function remoteShot(id,aim,tipObj,shipObj){
+  for(const tt of turrets2)tt.aim.lookAt(aim);
+  FS={turrets:turrets2.length?turrets2:[{tip:tipObj}],ship:shipObj,gi:0};COSMETIC=true;
   try{W_FIRE[id](aim)}finally{COSMETIC=false;FS=FS0}
   SFX.weapon(id,aim);
+}
+function remoteFire(P,shipObj,tipObj,dt){
+  const tw=Math.round(num(P.tw,1,6,1));if(turrets2.length!==tw)buildTurrets2(tw);
+  MP.rfT-=dt;
+  const hand=P.f&&Array.isArray(P.aim)?WEAPON_IDS[num(P.wp,0,WEAPON_IDS.length-1)]:null;
+  if(hand&&MP.rfT<=0){MP.rfT=1/Math.min(7,ITEMS[hand].base.rate);remoteShot(hand,new THREE.Vector3(num(P.aim[0],-300,300)/10,.5,num(P.aim[1],-500,500)/10),tipObj,shipObj)}
+  // Langsames Auto-Feuer der anderen Waffen des Mitspielers nachbilden
+  if(phase!=='fight'||!Array.isArray(P.wl))return;
+  MP.raT=MP.raT||{};const f=frontEnemy();
+  for(const i of P.wl.slice(0,8)){const id=WEAPON_IDS[i];if(!id||id===hand)continue;
+    MP.raT[id]=(MP.raT[id]||rnd())-dt;
+    if(f&&MP.raT[id]<=0){MP.raT[id]=1/(ITEMS[id].base.rate*.45)*(.9+rnd()*.2);remoteShot(id,lead(f,.5),tipObj,shipObj)}}
 }
 function remoteAbility(id){
   SFX.ability(id);COSMETIC=true;
@@ -154,7 +162,7 @@ function readAbilities(P){
 function myInputs(){
   const aimP=hold||mouse.p;
   return{aim:aimP?[r1(aimP.x),r1(aimP.z)]:null,f:hold&&!run.placing?1:0,wp:WEAPON_IDS.indexOf(run.sel),
-    ab:ABILITY_IDS.map(i=>MP.ab[i]||0),o:run.order,om:run.mechOrder,mo:run.marOrder,cm:cmdSnap(),zo:zombieSnap(),fx:MP.fx.slice(-25),v:GAME_VER};
+    ab:ABILITY_IDS.map(i=>MP.ab[i]||0),tw:turrets.length,wl:run.weapons.map(w=>WEAPON_IDS.indexOf(w)),o:run.order,om:run.mechOrder,mo:run.marOrder,cm:cmdSnap(),zo:zombieSnap(),fx:MP.fx.slice(-25),v:GAME_VER};
 }
 
 /* ---------- Host ---------- */
@@ -175,7 +183,7 @@ function hostSnap(){
   const sup=supply?[r1(supply.p.x),r1(supply.p.z),r1(supply.g.position.y)]:null;
   const o=Object.assign(myInputs(),{n:MP.name,r:'h',id:MP.runId,ph,wv:run.wave,st:run.start,hp:Math.ceil(run.hp),mx:Math.round(R('basis','maxhp')),
     eb:Math.round((run.earnBase||0)*10)/10,k:run.kills,env:[Math.round(env.t*1000),Math.round(env.rainT*100),Math.round(env.fogT*100)],
-    en,so,sr,pd,me,sh,rv,mr,sup,ev:run.ev?EV_KEYS.indexOf(run.ev.id):-1,bo:Math.ceil(run.blackout||0),fk:Math.round(FIELD_K*100)});
+    en,so,sr,pd,me,sh,rv,mr,sup,bl:ITEMS.basis.stats.map(k=>runLv(run,'basis',k)),ev:run.ev?EV_KEYS.indexOf(run.ev.id):-1,bo:Math.ceil(run.blackout||0),fk:Math.round(FIELD_K*100)});
   return o;
 }
 function hostApplyGuest(P,dt){
@@ -187,6 +195,7 @@ function hostApplyGuest(P,dt){
   if(['attack','hold','retreat','auto'].includes(P.mo))MP.peerMarOrder=P.mo;
   if(Array.isArray(P.rq))for(const q of P.rq){if(!q||typeof q.i!=='number'||q.i<=MP.rqSeen)continue;MP.rqSeen=q.i;
     if(q.k==='rep'){const mx=R('basis','maxhp');run.hp=Math.min(mx,run.hp+mx*.25);for(const s of structs)if(s.hp>0&&s.max>1)s.hp=Math.min(s.max,s.hp+s.max*.5);blast(BASE.clone().setY(.3),0x7cf0a8,10,.8,true);domeHit=1}
+    else if(q.k==='bu'&&ITEMS.basis.stats.includes(q.s)){const L=runLv(run,'basis',q.s);if(L<STAT[q.s].rMax){run.lv[lvKey('basis',q.s)]=L+1;afterUpgrade('basis',q.s,1);toast(MP.partnerName+' hat den Generator verbessert: '+STAT[q.s].n);if(phase==='shop')renderRunShop()}}
     else if(q.k==='rally'){for(const u of soldiers.concat(mechs,marines))if(!u.dead&&(u.own||0)===1)u.hp=Math.min(u.max,u.hp+u.max*.4)}}
   applyFx(P.fx,'fxSeenP');
   if(P.mw&&typeof P.mw==='object'){const js=JSON.stringify(P.mw);if(js!==MP.mwSeen){MP.mwSeen=js;const pk=cleanMech(P.mw);for(const m of mechs)if(m.own===1)applyMechPack(m,pk)}}
@@ -234,6 +243,7 @@ function guestFollowHost(P,dt){
   if(d>0){MP.ebSeen=eb;run.credits+=d*R('allg','credits');run.xp+=d*R('allg','xp');run.medals+=d*.12*R('allg','medals');
     while(run.xp>=xpNeed(run.level)){run.xp-=xpNeed(run.level);run.level++;run.pending++}}
   run.kills=num(P.k,0,1e9);
+  if(Array.isArray(P.bl)){let ch=false;ITEMS.basis.stats.forEach((k,i)=>{const h=Math.round(num(P.bl[i],0,50)),key=lvKey('basis',k);if(h>(run.lv[key]||0)){run.lv[key]=h;ch=true}});if(ch&&phase==='shop'&&runCat==='basis')renderRunShop()}
   const bo=num(P.bo,0,60);if(bo>0&&!(run.blackout>0)){SFX.blackout(true);flash(.55,'#000');banner('STROMAUSFALL<small>Fähigkeiten und Unterstützung fallen kurz aus</small>')}
   run.blackout=bo;$('app').classList.toggle('blackout',bo>0);
   FIELD_K=num(P.fk,100,300,100)/100;
@@ -417,7 +427,7 @@ function mpGuestUpdate(dt,t){
     if(s.bar){s.bar.visible=s.hp<s.max&&s.hp>0;if(s.bar.visible){s.bar.position.set(s.g.position.x,s.barY,s.g.position.z);s.bar.quaternion.copy(camera.quaternion);s.bar.userData.fg.scale.x=Math.max(0,s.hp/s.max)}}
   }
 }
-function mpRequest(k){MP.rq.push({i:++MP.rqSeq,k});if(MP.rq.length>4)MP.rq.shift()}
+function mpRequest(k,s){MP.rq.push({i:++MP.rqSeq,k,s});if(MP.rq.length>4)MP.rq.shift()}
 function mpRequestPlace(id,p,st){
   MP.pl.push({i:++MP.plSeq,k:SUPPORT_IDS.indexOf(id),x:r1(p.x),z:r1(p.z),s:st});
   if(MP.pl.length>4)MP.pl.shift();
