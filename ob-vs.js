@@ -13,6 +13,9 @@ const SW_UNITS=[
   {k:'panzer',n:'Panzerkäfer',c:22},
   {k:'elite',n:'Brutwächter',c:80,min:3},
   {k:'nest',n:'Brutloch',c:120,min:4,max:3,rear:true},
+  {k:'flieger',n:'Flieger',c:16,min:3},
+  {k:'heiler',n:'Heiler',c:30,min:4},
+  {k:'wuehler',n:'Wühler',c:28,min:5},
   {k:'boss',n:'Brutkönigin',c:300,min:5,once:true},
   {k:'titan',n:'Titan',c:800,min:10,once:true},
 ];
@@ -116,7 +119,7 @@ function vsSetupSwarm(){
   $('side').hidden=$('abilBar').hidden=$('orders').hidden=true;$('swarmUI').hidden=false;
   $('hCr').previousElementSibling.textContent='Biomasse';
   const L=$('swUnits');L.innerHTML='';swEls={u:{},a:{}};
-  SW_UNITS.forEach((u,i)=>{const b=el('button','ab',`<span class="an">${u.n}</span><span class="ak">${u.c}${isPC?' · '+(i+1):''}</span>`);
+  SW_UNITS.forEach((u,i)=>{const b=el('button','ab',`<span class="an">${u.n}</span><span class="ak">${u.c}${isPC&&i<10?' · '+((i+1)%10):''}</span>`);
     b.onclick=()=>{swSel=u.k;vsUpdUI()};L.appendChild(b);swEls.u[u.k]=b});
   const A=$('swAbil');A.innerHTML='';
   SW_ABIL.forEach(a=>{const b=el('button','ab',`<span class="an">${a.n}</span><span class="ak">${a.c}${isPC?' · '+a.key.toUpperCase():''}</span>`);b.title=a.d;
@@ -169,7 +172,7 @@ function vsAbility(k){
   if(MP.role==='host')vsHostReq({k:'sab',s:k});else mpRequest('sab',k);SFX.ability('kryo');toast(a.n+'!');
 }
 function vsKey(e,k){
-  if(/^[1-8]$/.test(k)){swSel=SW_UNITS[+k-1].k;vsUpdUI();return}
+  if(/^[0-9]$/.test(k)){const u=SW_UNITS[k==='0'?9:+k-1];if(u){swSel=u.k;vsUpdUI()}return}
   const a=SW_ABIL.find(x=>x.key===k);if(a){vsAbility(a.k);return}
   if(k==='+'||k==='='){zoomBy(1/1.15);return}if(k==='-'){zoomBy(1.15);return}
 }
