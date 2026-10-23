@@ -8,7 +8,7 @@
    Fähigkeiten über seine eigene Presence zurück.
    ========================================================= */
 const NAME_KEY='orbitalbrigade-name';
-const GAME_VER='2026-10-23c';
+const GAME_VER='2026-10-23d';
 const ET_KEYS=Object.keys(ET),ST_KEYS=['sentry','wall','minen','moerser','kaserne','ring','graeber'],SC_KEYS=['rifle','flamer','rpg','sniper'];
 const ANT_ST=['swarm','form','body','scatter','flood','dying','gone'],EV_KEYS=['meteor','supply','blackout','frenzy','gold'];
 $('bMP').hidden=!window.OB_NET;
@@ -407,7 +407,7 @@ function mpGuestUpdate(dt,t){
     if(e.dead)continue;const p=e.g.position;
     const dx=e.tx-p.x,dz=e.tz-p.z,moving=Math.hypot(dx,dz)>.02;
     p.x+=dx*k;p.z+=dz*k;
-    if(moving){e.g.rotation.y=lerpAngle(e.g.rotation.y,Math.atan2(dx,dz),Math.min(1,dt*8));e.step+=dt*e.sp*2.2;for(const l of e.legs)l.p.rotation.x=Math.sin(e.step+l.ph)*.5}
+    if(moving){e.g.rotation.y=lerpAngle(e.g.rotation.y,Math.atan2(dx,dz),Math.min(1,dt*8));e.step+=dt*e.sp*2.2;animLegs(e)}
     if(e.burn>0){e.burn-=dt;hit(e,e.burnDps*dt,true);if(rnd()<dt*8)spark(p.clone().setY(1),0xff7a2a,1,2,4)}
     else if(e.burnVis&&rnd()<dt*6)spark(p.clone().setY(1),0xff7a2a,1,2,4);
     e.fl=Math.max(0,e.fl-dt);

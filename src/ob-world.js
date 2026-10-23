@@ -385,23 +385,45 @@ const eyeMat=new THREE.MeshBasicMaterial({color:0xfff27a});
 const legMat=new THREE.MeshStandardMaterial({color:0x2a1a1a,roughness:.8});
 const plateMat=new THREE.MeshStandardMaterial({color:0x3a2a40,roughness:.5,metalness:.3});
 const sacMat=new THREE.MeshStandardMaterial({color:0x9be35a,emissive:0x1f4a10,roughness:.3,transparent:true,opacity:.85});
+// Gegliederte Insektenbeine: Oberschenkel schräg nach oben, Knie, Unterschenkel zum Boden
+const legG=(()=>{const a=new THREE.CylinderGeometry(.075,.12,1,7);a.translate(0,.5,0);const b=new THREE.CylinderGeometry(.025,.085,1,7);b.translate(0,.5,0);
+  const k=new THREE.SphereGeometry(.11,7,5),c=new THREE.ConeGeometry(.05,.22,5);return{thigh:a,shin:b,knee:k,claw:c}})();
+const mandG=(()=>{const g=new THREE.ConeGeometry(.08,.5,5);g.rotateX(Math.PI/2);g.translate(0,0,.25);return g})();
+const antG=(()=>{const g=new THREE.CylinderGeometry(.012,.025,1,4);g.translate(0,.5,0);return g})();
+const bellyMat=new THREE.MeshStandardMaterial({color:0x2a1a1a,roughness:.6});
 function makeBug(type){
   const T=ET[type],g=new THREE.Group(),inner=new THREE.Group();g.add(inner);inner.scale.setScalar(T.s);
-  const mat=new THREE.MeshStandardMaterial({color:T.col,roughness:T.gold?.25:.55,metalness:T.gold?.85:0,emissive:0x000000});
-  const body=new THREE.Mesh(G.body,mat);body.scale.set(0.8,0.55,1.1);body.position.y=0.75;body.castShadow=true;inner.add(body);
-  const head=new THREE.Mesh(G.body,mat);head.scale.set(0.45,0.4,0.45);head.position.set(0,0.85,1.15);head.castShadow=true;inner.add(head);
-  [-1,1].forEach(sd=>{const e=new THREE.Mesh(G.eye,eyeMat);e.position.set(sd*0.2,1,1.5);inner.add(e)});
+  const mat=new THREE.MeshStandardMaterial({color:T.col,roughness:T.gold?.25:.42,metalness:T.gold?.85:.08,emissive:0x000000});
+  const small=type==='schwarm';
+  // Körper: Brust, Hinterleib und Kopf
+  const thorax=new THREE.Mesh(G.body,mat);thorax.scale.set(.62,.46,.7);thorax.position.set(0,.78,.3);thorax.castShadow=true;inner.add(thorax);
+  const abd=new THREE.Mesh(G.body,mat);abd.scale.set(.78,.6,1.02);abd.position.set(0,.9,-.78);abd.rotation.x=-.18;abd.castShadow=true;inner.add(abd);
+  if(!small){const belly=new THREE.Mesh(G.body,bellyMat);belly.scale.set(.62,.3,.85);belly.position.set(0,.62,-.72);inner.add(belly);
+    for(let k=0;k<3;k++){const band=new THREE.Mesh(G.body,bellyMat);band.scale.set(.8-k*.1,.08,.12);band.position.set(0,1.05+(k===1?.06:0),-.45-k*.38);band.rotation.x=-.2;inner.add(band)}}
+  const head=new THREE.Mesh(G.body,mat);head.scale.set(.42,.36,.44);head.position.set(0,.84,1.08);head.castShadow=true;inner.add(head);
+  [-1,1].forEach(sd=>{const e=new THREE.Mesh(G.eye,eyeMat);e.position.set(sd*.2,.98,1.38);inner.add(e)});
+  if(!small)[-1,1].forEach(sd=>{const m=new THREE.Mesh(mandG,legMat);m.position.set(sd*.16,.7,1.4);m.rotation.y=-sd*.45;m.rotation.x=.25;inner.add(m);
+    const a=new THREE.Mesh(antG,legMat);a.position.set(sd*.12,1.12,1.3);a.rotation.set(.9,0,-sd*.45);a.scale.y=.9;inner.add(a)});
+  // Beine
   const legs=[];
   for(let i=0;i<3;i++)[-1,1].forEach(sd=>{
-    const pivot=new THREE.Group();pivot.position.set(sd*0.6,0.7,0.6-i*0.6);
-    const l=new THREE.Mesh(G.leg,legMat);l.position.set(sd*0.45,-0.25,0);l.rotation.set(0,Math.PI/2,sd*0.7);pivot.add(l);
-    inner.add(pivot);legs.push({p:pivot,ph:i*2.1+(sd>0?Math.PI:0)});
+    const pivot=new THREE.Group();pivot.position.set(sd*.42,.74,.55-i*.42);
+    const yaw=-sd*(1-i)*.5;pivot.rotation.y=yaw;
+    const hip=new THREE.Group(),hz=-sd*.95;hip.rotation.z=hz;pivot.add(hip);
+    const th=new THREE.Mesh(legG.thigh,legMat);th.scale.set(1,.78,1);th.castShadow=true;hip.add(th);
+    const knee=new THREE.Group();knee.position.y=.78;knee.rotation.z=-sd*1.78;hip.add(knee);
+    if(!small)knee.add(new THREE.Mesh(legG.knee,legMat));
+    const sh=new THREE.Mesh(legG.shin,legMat);sh.scale.set(1,1.2,1);sh.castShadow=true;knee.add(sh);
+    const cl=new THREE.Mesh(legG.claw,legMat);cl.position.y=1.24;knee.add(cl);
+    inner.add(pivot);legs.push({p:pivot,ph:i*2.1+(sd>0?Math.PI:0),yaw,hip,hz,sd});
   });
-  if(type==='panzer'||T.boss||T.elite){for(let i=0;i<3;i++){const p=new THREE.Mesh(G.plate,plateMat);p.position.set(0,1.18,0.5-i*0.55);p.rotation.x=-0.2;p.castShadow=true;inner.add(p)}}
-  if(T.boss||T.elite){for(let i=0;i<(T.elite?3:5);i++){const s=new THREE.Mesh(G.spike,plateMat);s.position.set((i-2)*0.3,1.45,0.2-Math.abs(i-2)*0.15);s.rotation.x=-0.4;inner.add(s)}}
-  if(type==='spucker'){const sac=new THREE.Mesh(G.body,sacMat);sac.scale.set(.55,.5,.6);sac.position.set(0,1.2,-.45);inner.add(sac)}
+  if(type==='panzer'||T.boss||T.elite){for(let i=0;i<3;i++){const p=new THREE.Mesh(G.plate,plateMat);p.position.set(0,1.2+(i===1?.08:0),.35-i*.55);p.rotation.x=-0.2;p.castShadow=true;inner.add(p)}}
+  if(T.boss||T.elite){for(let i=0;i<(T.elite?3:5);i++){const s=new THREE.Mesh(G.spike,plateMat);s.position.set((i-2)*0.3,1.5,0.05-Math.abs(i-2)*0.15);s.rotation.x=-0.4;inner.add(s)}}
+  if(type==='spucker'){const sac=new THREE.Mesh(G.body,sacMat);sac.scale.set(.55,.5,.6);sac.position.set(0,1.3,-.7);inner.add(sac)}
   return {g,mat,legs,inner};
 }
+// Laufbewegung: Beine schwingen vor und zurück und heben sich dabei an
+function animLegs(e){for(const l of e.legs){if(l.hip==null)continue;const a=e.step+l.ph;l.p.rotation.y=l.yaw+Math.sin(a)*.34;l.hip.rotation.z=l.hz-l.sd*Math.max(0,Math.cos(a))*.3}}
 
 /* ---------- Soldaten, Drop-Pod, Gebäude ---------- */
 const solArmor=new THREE.MeshStandardMaterial({color:0x4a515f,roughness:.7,metalness:.3});

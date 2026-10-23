@@ -299,7 +299,7 @@ function updateEnemies(dt){
       }
       moving=true;e.inner.position.z=0;
     }
-    if(moving){e.step+=dt*e.sp*2.2;for(const l of e.legs)l.p.rotation.x=Math.sin(e.step+l.ph)*.5;e.inner.position.y=Math.abs(Math.sin(e.step))*.08}
+    if(moving){e.step+=dt*e.sp*2.2;animLegs(e);e.inner.position.y=Math.abs(Math.sin(e.step))*.08}
     if(run.tut&&dist<BASE_R+e.r+3){p.set((rnd()-.5)*16,0,28);continue}
     if(dist<BASE_R+e.r){
       e.dead=true;spark(p.clone().setY(1),0x5fd0ff,14,12);
@@ -1077,7 +1077,7 @@ function goldTick(e,dt){
   const sp=e.sp*(e.slowT>0?.45:1),vz=Math.sin(waveT*2.4+e.ph)*sp*.7;
   p.x+=e.dir*sp*dt;p.z=Math.max(BASE.z+14,Math.min(fd.ZF-4,p.z+vz*dt));
   e.g.rotation.y=Math.atan2(e.dir*sp,vz);
-  e.step+=dt*sp*2.2;for(const l of e.legs)l.p.rotation.x=Math.sin(e.step+l.ph)*.5;
+  e.step+=dt*sp*2.2;animLegs(e);
   if(rnd()<dt*6)spark(p.clone().setY(.8),0xffd23f,1,2,3);
   if(e.dir*p.x>fd.X-1&&e.turns<1){e.turns++;e.dir*=-1}
   if(e.dir*p.x>fd.X+1.5||e.life<=0){e.dead=true;toast('Der Goldkäfer ist entkommen')}
