@@ -212,9 +212,8 @@ function giftAmeise(fresh){
   try{
     if(fresh)ls.set('orbitalbrigade-gift','ameise');
     if(ls.get('orbitalbrigade-gift')!=='ameise')return;
-    if(M.eq)return;
     M.cmdOwned=M.cmdOwned||{};const neu=!M.cmdOwned.cmd_ameise;M.cmdOwned.cmd_ameise=1;
-    if(fresh||!M.cmdSel)M.cmdSel='cmd_ameise';
+    if(M.eq){if(fresh||!M._realSel)M._realSel='cmd_ameise'}else if(fresh||!M.cmdSel)M.cmdSel='cmd_ameise';
     if(neu||fresh)saveMeta();
     if(fresh){SFX.unlockJingle();toast('Ameisenlegion freigeschaltet und ausgewählt');
       try{if(!$('ovMeta').hidden)renderMeta();else if(!run)renderMenu()}catch(e){}}
@@ -233,3 +232,14 @@ function giftAmeise(fresh){
     if(buf.endsWith('ameisenkoenig')||buf.endsWith('ameisenkönig'))giftAmeise(true);
   },true);
 })();
+
+const GIFT_CODES=['ameisenkoenig','ameisenkönig','ameisen-eric-7q2k'];
+function giftCodeRow(L){
+  const row=el('div','row giftrow','<div class="nm">Geschenkcode</div>');
+  const inp=document.createElement('input');inp.type='text';inp.placeholder='Code eingeben';inp.autocomplete='off';inp.className='giftin';
+  const b=el('button','buy','Einlösen');
+  const go=()=>{const v=inp.value.trim().toLowerCase();if(GIFT_CODES.includes(v)){giftAmeise(true);inp.value=''}else{SFX.deny();toast('Dieser Code ist ungültig')}};
+  b.onclick=go;inp.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter')go()};
+  row.appendChild(inp);row.appendChild(b);L.appendChild(row);
+}
+setTimeout(()=>{try{$('mVer').textContent='Version '+(typeof GAME_VER!=='undefined'?GAME_VER:'Chat')}catch(e){}},0);

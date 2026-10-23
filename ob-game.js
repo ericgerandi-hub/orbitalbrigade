@@ -1903,6 +1903,7 @@ function renderCmdTab(L){
   b.disabled=sel||(!own&&M.stars<it.stars);
   b.onclick=()=>{if(!own){if(M.stars<it.stars)return;M.stars-=it.stars;M.cmdOwned[id]=1;SFX.unlockJingle()}M.cmdSel=id;saveMeta();renderMeta()};
   head.appendChild(b);L.appendChild(head);
+  if(typeof giftCodeRow==='function')giftCodeRow(L);
   if(!own)return;
   L.appendChild(el('div','grouph','Verbesserungen (Medaillen, bleiben bei Wiedergeburt)'));
   it.stats.forEach(k=>{if(STAT[k].mMax>0)L.appendChild(statRow(id,k,'meta'))});
