@@ -8,7 +8,7 @@
    Fähigkeiten über seine eigene Presence zurück.
    ========================================================= */
 const NAME_KEY='orbitalbrigade-name';
-const GAME_VER='2026-10-24b';
+const GAME_VER='2026-10-24c';
 const ET_KEYS=Object.keys(ET),ST_KEYS=['sentry','wall','minen','moerser','kaserne','ring','graeber'],SC_KEYS=['rifle','flamer','rpg','sniper'];
 const ANT_ST=['swarm','form','body','scatter','flood','dying','gone'],EV_KEYS=['meteor','supply','blackout','frenzy','gold'];
 $('bMP').hidden=!window.OB_NET;
@@ -193,7 +193,7 @@ function readAbilities(P){
 function myInputs(){
   const aimP=hold||mouse.p;
   return{aim:aimP?[r1(aimP.x),r1(aimP.z)]:null,f:hold&&!run.placing?1:0,wp:WEAPON_IDS.indexOf(run.sel),
-    ab:ABILITY_IDS.map(i=>MP.ab[i]||0),qc:MP.qc||null,tw:turrets.length,sh:run&&run.ship||M.shipSel||'bastion',by:MP.buys||[],ag:MP.again||0,mk:MP.mk||null,pt:Math.round(performance.now()),pe:MP.peT||0,pd:MP.peAt?Math.round(performance.now()-MP.peAt):0,wl:run.weapons.map(w=>WEAPON_IDS.indexOf(w)),o:run.order,om:run.mechOrder,mo:run.marOrder,cm:cmdSnap(),zo:zombieSnap(),fx:MP.fx.slice(-25),v:GAME_VER};
+    ab:ABILITY_IDS.map(i=>MP.ab[i]||0),qc:MP.qc||null,tw:turrets.length,sh:run&&run.ship||M.shipSel||'bastion',by:MP.buys||[],ag:MP.again||0,mk:MP.mk||null,pt:Math.round(performance.now()),pe:MP.peT||0,pd:MP.peAt?Math.round(performance.now()-MP.peAt):0,wl:run.weapons.map(w=>WEAPON_IDS.indexOf(w)),o:run.order,om:run.mechOrder,mo:run.marOrder,cm:cmdSnap(),zo:zombieSnap(),ac:typeof carrierSnap==='function'?carrierSnap():null,fx:MP.fx.slice(-25),v:GAME_VER};
 }
 
 /* ---------- Host ---------- */
@@ -219,7 +219,7 @@ function hostSnap(){
 }
 function hostApplyGuest(P,dt){
   if(P.id!==MP.runId)return;
-  if(!(MP.vs&&MP.swarmSide==='g')){remoteFire(P,ship2,ship2Tip,dt);readAbilities(P)}
+  if(!(MP.vs&&MP.swarmSide==='g')){remoteFire(P,ship2,ship2Tip,dt);readAbilities(P);if(typeof carrierPuppets==='function')carrierPuppets(P.ac,dt)}
   else vsHostApply(P);
   if(['attack','hold','retreat','auto'].includes(P.o))MP.peerOrder=P.o;
   if(['attack','hold','retreat','auto'].includes(P.om))MP.peerMechOrder=P.om;
@@ -228,6 +228,7 @@ function hostApplyGuest(P,dt){
     if(q.k==='rep'){const mx=R('basis','maxhp');run.hp=Math.min(mx,run.hp+mx*.25);for(const s of structs)if(s.hp>0&&s.max>1)s.hp=Math.min(s.max,s.hp+s.max*.5);blast(BASE.clone().setY(.3),0x7cf0a8,10,.8,true);domeHit=1}
     else if(q.k==='bu'&&ITEMS.basis.stats.includes(q.s)){const L=runLv(run,'basis',q.s);if(L<STAT[q.s].rMax){run.lv[lvKey('basis',q.s)]=L+1;afterUpgrade('basis',q.s,1);if(phase==='shop')renderRunShop()}}
     else if(q.k==='sab'||q.k==='evo'){if(MP.vs)vsHostReq(q)}
+    else if(q.k==='heal'){const mx=R('basis','maxhp');run.hp=Math.min(mx,run.hp+mx*Math.max(0,Math.min(.05,+q.s||0)))}
     else if(q.k==='rally'){for(const u of soldiers.concat(mechs,marines))if(!u.dead&&(u.own||0)===1)u.hp=Math.min(u.max,u.hp+u.max*.4)}}
   applyFx(P.fx,'fxSeenP');
   if(P.mw&&typeof P.mw==='object'){const js=JSON.stringify(P.mw);if(js!==MP.mwSeen){MP.mwSeen=js;const pk=cleanMech(P.mw);for(const m of mechs)if(m.own===1)applyMechPack(m,pk)}}
@@ -297,6 +298,7 @@ function guestFollowHost(P,dt){
   }else if(P.ph==='f'&&phase==='fight'&&wv>run.wave)run.wave=wv;
   remoteFire(P,ship2,ship2Tip,dt);
   readAbilities(P);
+  if(typeof carrierPuppets==='function')carrierPuppets(P.ac,dt);
   applySnap(P);
 }
 function applySnap(P){

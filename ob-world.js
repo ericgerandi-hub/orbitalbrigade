@@ -340,7 +340,7 @@ ship.position.copy(SHIP_POS);ship.rotation.set(0.04,Math.PI-0.42,0.05);ship.scal
 const SHIPS=[
   {id:'bastion',name:'Bastion',cls:'Schlachtschiff',d:'Das bewährte Arbeitstier der Brigade. Ausgewogen, ohne Schwächen und ohne Extras.',m:{},tint:0xc8ccd6,glow:0x5fd0ff},
   {id:'hammer',name:'Hammerhai',cls:'Zerstörer',d:'Gebaut für maximale Feuerkraft. Für die Geschütze musste die Schildtechnik weichen.',m:{wdmg:1.25,wrate:1.1,hp:.75},tint:0xb8a8a8,glow:0xff7a4a},
-  {id:'arche',name:'Arche',cls:'Träger',d:'Ein fliegender Hangar. Bringt Truppen, Gebäude und Fahrzeuge schneller aufs Feld.',m:{sup:.7,wdmg:.85},tint:0xb4bfa8,glow:0xffd23f},
+  {id:'arche',name:'Arche',cls:'Träger',d:'Ein fliegender Flugzeugträger. Vom Deck startet eine eigene Staffel aus Jägern, Bombern, Kanonenbooten und Bergungsfliegern. Truppen, Gebäude und Fahrzeuge kommen schneller aufs Feld.',perk:'Eigene Fliegerstaffel mit bis zu 8 Maschinen',m:{sup:.7,wdmg:.85},tint:0xb4bfa8,glow:0xffd23f},
   {id:'aegis',name:'Aegis',cls:'Schildkreuzer',d:'Projiziert zusätzliche Energie in den Generator. Die Geschütze feuern etwas träger.',m:{hp:1.4,regen:1.5,wrate:.85},tint:0xa8c0d6,glow:0x7cf0ff},
   {id:'phantom',name:'Phantom',cls:'Tarnfregatte',d:'Experimentelle Orbitaltechnik: Fähigkeiten laden schneller und treffen härter.',m:{abil:.7,adm:1.2,wdmg:.9},tint:0x5a6070,glow:0xc77dff},
 ];
@@ -415,15 +415,101 @@ function buildHammer(g,M){
     for(let k=0;k<3;k++){const m=box(1.6,.06,.3,M.acc,sd*.9,1.22,12-k*1.2,g);m.rotation.y=sd*.6}});
   engines(g,[-1.7,1.7],-18.6,0xff7a4a,1.1);
 }
+/* ---------- Flugzeuge der Arche (Weltmaßstab, Nase zeigt nach +z) ---------- */
+const acGlowMat=c=>new THREE.SpriteMaterial({map:glowTex,color:c,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true});
+const acWingGeo={};
+function acWing(span,root,tip,sweep,th){
+  const k=[span,root,tip,sweep,th].join('|');if(acWingGeo[k])return acWingGeo[k];
+  const s=new THREE.Shape();s.moveTo(0,root*.5);s.lineTo(span,root*.5-sweep);s.lineTo(span,root*.5-sweep-tip);s.lineTo(0,-root*.5);s.closePath();
+  const g=new THREE.ExtrudeGeometry(s,{depth:th,bevelEnabled:false});g.rotateX(Math.PI/2);g.translate(0,th*.5,0);return acWingGeo[k]=g;
+}
+function acWings(g,mat,span,root,tip,sweep,th,y,z,x0){
+  [-1,1].forEach(sd=>{const m=new THREE.Mesh(acWing(span,root,tip,sweep,th),mat);m.scale.x=sd;m.position.set(sd*(x0||0),y,z);m.castShadow=true;g.add(m)});
+}
+function acNose(g,mat,r,len,z,y){const c=new THREE.Mesh(new THREE.ConeGeometry(r,len,8),mat);c.rotation.x=Math.PI/2;c.position.set(0,y||0,z);g.add(c);return c}
+function acFan(g,x,y,z,r,list){
+  const f=new THREE.Group();f.position.set(x,y,z);g.add(f);
+  const ring=new THREE.Mesh(new THREE.CylinderGeometry(r,r,.32,14,1,true),darkMat);f.add(ring);
+  const rot=new THREE.Group();f.add(rot);
+  for(let i=0;i<3;i++){const b=box(r*1.8,.04,.16,hullMat,0,0,0,rot);b.rotation.y=i*Math.PI/3}
+  list.push(rot);return f;
+}
+function makePlane(type){
+  const g=new THREE.Group(),glows=[],fans=[];g.rotation.order='YXZ';
+  if(type==='jaeger'){
+    box(.55,.45,2.6,hullMat,0,0,0,g);acNose(g,hullMat,.3,1.1,1.85);
+    box(.34,.2,.8,winMat,0,.3,.55,g);box(.58,.06,1.6,yellowMat,0,.24,-.2,g);
+    acWings(g,hullMat,1.75,1.5,.45,1.05,.08,-.05,-.2,.25);
+    [-1,1].forEach(sd=>{const f=box(.06,.62,.6,hullMat,sd*.24,.4,-1.05,g);f.rotation.z=sd*.35;box(.1,.1,.5,darkMat,sd*1.6,-.08,-.6,g)});
+    acWings(g,hullMat,.75,.5,.3,.2,.06,0,-1.15,.2);
+    const e=new THREE.Mesh(new THREE.CylinderGeometry(.22,.26,.4,10),darkMat);e.rotation.x=Math.PI/2;e.position.z=-1.45;g.add(e);
+    const gl=new THREE.Sprite(acGlowMat(0xffd23f));gl.scale.set(1.5,1.5,1);gl.position.z=-1.8;g.add(gl);glows.push(gl);
+  }else if(type==='bomber'){
+    box(.95,.75,3.6,hullMat,0,0,0,g);acNose(g,hullMat,.48,1.2,2.4);box(.6,.24,.7,winMat,0,.42,1.4,g);
+    box(.7,.08,1.6,darkMat,0,-.4,.1,g);
+    acWings(g,hullMat,2.5,1.3,.6,.55,.12,.05,.25,.4);
+    box(5.2,.04,.18,yellowMat,0,.13,.68,g);
+    [-2,-1.1,1.1,2].forEach(x=>{const p=new THREE.Mesh(new THREE.CylinderGeometry(.2,.22,1.1,10),darkMat);p.rotation.x=Math.PI/2;p.position.set(x,-.1,.45-Math.abs(x)*.12);g.add(p);
+      const gl=new THREE.Sprite(acGlowMat(0xff9a3d));gl.scale.set(.9,.9,1);gl.position.set(x,-.1,-.2-Math.abs(x)*.12);g.add(gl);glows.push(gl)});
+    acWings(g,hullMat,1.1,.6,.35,.25,.07,.15,-1.6,.3);box(.08,.9,.8,hullMat,0,.6,-1.6,g);
+  }else if(type==='gunship'){
+    box(1.25,.95,2.6,hullMat,0,0,0,g);box(.95,.7,.9,hullMat,0,-.05,1.65,g);box(.8,.26,.08,winMat,0,.12,2.12,g);
+    box(.32,.32,1.8,hullMat,0,.15,-2.1,g);box(.08,.8,.6,hullMat,0,.55,-2.8,g);box(1.4,.06,.4,hullMat,0,.3,-2.8,g);
+    box(3.4,.12,.7,hullMat,0,.25,0,g);box(3.42,.04,.2,yellowMat,0,.32,.15,g);
+    acFan(g,-1.95,.25,0,.62,fans);acFan(g,1.95,.25,0,.62,fans);
+    box(.2,.2,1.3,darkMat,.72,-.25,.6,g);box(.12,.12,.6,darkMat,-.7,-.3,.9,g);
+    const gl=new THREE.Sprite(acGlowMat(0xff7a4a));gl.scale.set(1.1,1.1,1);gl.position.z=-1.5;g.add(gl);glows.push(gl);
+  }else{ // pelikan
+    box(1.5,1.15,3.1,hullMat,0,0,0,g);box(1.2,.8,.9,hullMat,0,-.1,1.9,g);box(1,.3,.08,winMat,0,.12,2.36,g);
+    box(1.52,.3,.6,new THREE.MeshBasicMaterial({color:0x7cf0a8}),0,.45,.2,g);
+    box(.5,.08,1.6,new THREE.MeshBasicMaterial({color:0x7cf0a8}),0,.6,-.6,g);box(1.6,.08,.5,new THREE.MeshBasicMaterial({color:0x7cf0a8}),0,.6,-.6,g);
+    [[-1.3,1.05],[1.3,1.05],[-1.3,-1.1],[1.3,-1.1]].forEach(([x,z])=>{box(.9,.12,.2,darkMat,x*.65,.1,z,g);acFan(g,x,.15,z,.48,fans)});
+    box(.18,.6,.18,darkMat,0,-.85,-.2,g);
+    const gl=new THREE.Sprite(acGlowMat(0x7cf0a8));gl.scale.set(1.4,1.4,1);gl.position.y=-1.2;g.add(gl);glows.push(gl);
+  }
+  g.userData={glows,fans,type};return g;
+}
+/* ---------- Arche: Träger mit Flugdeck, Hangar und Staffel an Deck ---------- */
+const ARCHE_PARK=[[-3.6,-10.5,.7],[-3.6,-7.4,.7],[3.4,10.5,-.6],[3.4,13.6,-.6],[-3.6,-4.3,.7],[-3.6,-1.2,.7],[3.4,7.4,-.6],[-4.4,4.4,.9]];
+const ARCHE_SQ=['jaeger','jaeger','bomber','gunship','pelikan','jaeger','bomber','gunship'];
+const hangarLit=new THREE.MeshBasicMaterial({color:0xffcf7a});
+const deckMat=new THREE.MeshStandardMaterial({color:0x3a3f4a,roughness:.85,metalness:.3});
+const deckWhite=new THREE.MeshBasicMaterial({color:0xdfe6ee});
 function buildArche(g,M){
   g.userData.glows=[];
   hullFrom(g,M,1.45,.95,1.6,.6);
-  box(10,.35,25,M.hull,0,1.1,0,g);box(.25,.06,22,yellowMat,0,1.31,0,g);
-  for(let k=0;k<9;k++)[-1,1].forEach(sd=>box(.3,.06,.3,M.line,sd*4.4,1.31,-10+k*2.5,g));
-  box(1.8,3.6,4.2,M.hull,4.6,3.1,-3,g);box(1.84,.3,4.24,winMat,4.6,4.4,-3,g);box(.1,1.6,.1,darkMat,4.6,5.7,-3,g);
+  // Hangardeck mit beleuchteten Toren an den Seiten und am Heck
+  box(10.6,.7,27,M.hull,0,.95,0,g);
+  [-1,1].forEach(sd=>{for(let k=0;k<3;k++){box(.08,.44,2.6,darkMat,sd*5.32,.95,-8+k*5.2,g);box(.06,.34,2.4,hangarLit,sd*5.34,.93,-8+k*5.2,g)}});
+  box(7,.62,.12,darkMat,0,.95,-13.55,g);box(6.4,.5,.08,hangarLit,0,.93,-13.6,g);
+  for(let k=0;k<7;k++)box(.06,.5,.1,darkMat,-3+k,.93,-13.63,g);
+  // Flugdeck mit Schrägdeck
+  box(11,.3,30,deckMat,0,1.45,1,g);
+  const ang=box(4.6,.28,15,deckMat,-6.4,1.44,-4.5,g);ang.rotation.y=.14;
+  box(.18,.05,26,yellowMat,0,1.62,2,g);
+  for(let k=0;k<9;k++){const d=box(.16,.05,1.1,deckWhite,-5.6+k*.12,1.62,-11+k*1.9,g);d.rotation.y=.14}
+  for(let k=0;k<4;k++)box(3.4,.05,.12,deckWhite,-4.6,1.62,-9.4+k*.7,g);
+  // Katapulte vorn
+  [1.4,-1.2].forEach(x=>{box(.22,.06,13,M.line,x,1.62,9.5,g);box(.9,.1,.5,darkMat,x,1.65,3.4,g);const bl=box(1.6,.6,.08,darkMat,x,1.9,2.6,g);bl.rotation.x=-.9});
+  // Aufzüge zum Hangar
+  [[-3.9,6],[4,-10]].forEach(([x,z])=>{box(3,.06,3,darkMat,x,1.61,z,g);[[0,1.5],[0,-1.5]].forEach(([a,b])=>box(3,.06,.12,yellowMat,x+a,1.63,z+b,g));[[1.5,0],[-1.5,0]].forEach(([a,b])=>box(.12,.06,3,yellowMat,x+a,1.63,z+b,g))});
+  // Insel mit Brücke, Mast und Radar
+  box(2,3.4,5.6,M.hull,4.9,3.3,-2.5,g);box(2.04,.34,5.64,winMat,4.9,4.6,-2.5,g);box(2.6,.8,3,M.hull,4.9,5.4,-2,g);box(2.64,.22,3.04,winMat,4.9,5.5,-2,g);
+  box(.9,1.2,.9,darkMat,4.9,2.2,-6,g);
+  box(.16,3,.16,darkMat,4.9,7.2,-2.2,g);box(1.6,.1,.1,darkMat,4.9,8,-2.2,g);
+  const radar=new THREE.Group();radar.position.set(4.9,8.9,-2.2);g.add(radar);box(1.9,.7,.1,M.hull,0,0,0,radar);box(.12,.6,.5,darkMat,0,-.3,-.2,radar);
+  const lamp=new THREE.Mesh(new THREE.SphereGeometry(.16,8,6),new THREE.MeshBasicMaterial({color:0xff5d5d}));lamp.position.set(4.9,8.72,-2.2);g.add(lamp);
+  // Landelichter am Schrägdeck
+  const blink=[];
+  for(let k=0;k<6;k++)[-1,1].forEach(sd=>{const l=new THREE.Mesh(new THREE.SphereGeometry(.11,6,4),new THREE.MeshBasicMaterial({color:0x7cf0a8}));l.position.set(-6.4+sd*2.1+(k*2.3-6)*.14,1.66,-11+k*2.3);g.add(l);blink.push({m:l,k})});
+  // Nahbereichs-Geschütze an den Ecken
+  [[-5.6,13],[5.6,13],[-5.6,-12.5],[5.6,-12.5]].forEach(([x,z])=>{box(1.2,.5,1.2,M.hull,x,1.4,z,g);const t=new THREE.Mesh(new THREE.CylinderGeometry(.35,.42,.5,10),darkMat);t.position.set(x,1.9,z);g.add(t);box(.1,.1,.9,darkMat,x+.1,2,z+.5,g);box(.1,.1,.9,darkMat,x-.1,2,z+.5,g)});
   box(7,1.6,.4,darkMat,0,0,11.6,g);
-  [-1,1].forEach(sd=>{box(1.8,1.4,10,M.hull,sd*7,.1,-2,g);for(let k=0;k<4;k++)box(.1,.5,1.4,M.line,sd*7.92,.2,-5.5+k*2.3,g)});
   engines(g,[-4.2,-1.4,1.4,4.2],-13.5,0xffd23f,.85);
+  // Geparkte Maschinen an Deck
+  const parked=ARCHE_PARK.map((p,i)=>{const m=makePlane(ARCHE_SQ[i]);m.scale.setScalar(1/1.6);m.position.set(p[0],1.6+{jaeger:.3,bomber:.45,gunship:.55,pelikan:.72}[ARCHE_SQ[i]]/1.6,p[1]);m.rotation.y=p[2];
+    for(const gl of m.userData.glows)gl.visible=false;g.add(m);return m});
+  g.userData.carrier={parked,radar,blink,lamp};
 }
 function buildAegis(g,M){
   g.userData.glows=[];

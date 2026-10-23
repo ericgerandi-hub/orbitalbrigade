@@ -230,7 +230,7 @@ function specTick(dt,t){
   if(Array.isArray(P.env)){env.t=num(P.env[0],0,1000)/1000;env.rainT=num(P.env[1],0,100)/100;env.fogT=num(P.env[2],0,100)/100}
   if(typeof P.sh==='string')setShipModel(ship2,P.sh);
   if(P!==SPEC.applied){SPEC.applied=P;MP.P=P;applySnap(P);MP.pup.d=P.cm||null;applyZombiePuppets(P.zo,dt)}
-  updateOnScreen();remoteFire(P,ship2,ship2Tip,dt);mpGuestUpdate(dt,t);puppetTick(dt,t);
+  updateOnScreen();remoteFire(P,ship2,ship2Tip,dt);if(typeof carrierPuppets==='function')carrierPuppets(P.ac,dt);mpGuestUpdate(dt,t);puppetTick(dt,t);
   showCombo(Math.round(num(P.cc,0,1e6)),num(P.cb,1,5,1));
   $('specInfo').textContent='Welle '+run.wave+' · '+({f:'Kampf',s:'Upgrade-Menü',o:'Run beendet'}[P.ph]||'');
   $('boss').hidden=!bossE;if(bossE){$('bossName').textContent=bossE.T.name;$('bossBar').style.width=Math.max(0,bossE.hp/bossE.max*100)+'%'}

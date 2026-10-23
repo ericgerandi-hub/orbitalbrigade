@@ -1344,7 +1344,8 @@ function renderShip(){
   $('shName').textContent=S.name;$('shCls').textContent=S.cls;$('shDesc').textContent=S.d;
   const d=$('shDots');d.innerHTML='';SHIPS.forEach((x,i)=>{const e=el('i',i===shipIdx?'on':'');e.onclick=()=>{shipIdx=i;renderShip()};d.appendChild(e)});
   const L=$('shMods');L.innerHTML='';const ks=Object.keys(S.m);
-  if(!ks.length)L.appendChild(el('li','neutral','Keine Stärken und keine Schwächen'));
+  if(S.perk)L.appendChild(el('li','plus',`<span>${S.perk}</span><b>✈</b>`));
+  if(!ks.length&&!S.perk)L.appendChild(el('li','neutral','Keine Stärken und keine Schwächen'));
   ks.sort((a,b)=>goodMod(b,S.m[b])-goodMod(a,S.m[a])).forEach(k=>{const v=S.m[k],li=el('li',goodMod(k,v)?'plus':'minus',`<span>${SHIP_MOD_TXT[k]}</span><b>${fmtMod(k,v)}</b>`);L.appendChild(li)});
 }
 $('shPrev').onclick=()=>{shipIdx=(shipIdx+SHIPS.length-1)%SHIPS.length;renderShip();SFX.click()};
@@ -2137,6 +2138,7 @@ function update(dt,t){
   if(MP)mpTick(dt,t);
   if(specHook)specHook(dt,t);
   if(typeof extraTick==='function')extraTick(run&&play()&&!halted?dt:0);
+  if(typeof carrierTick==='function')carrierTick(run&&play()&&!halted?dt:0,t);
   if(!run||!play()||halted)return;
   waveT+=dt;
   if(guided)updateGuided(realDt);
