@@ -104,7 +104,9 @@ $('dMobile').classList.toggle('sug',!detectedPC);$('sugMobile').hidden=detectedP
    Gegner
    ========================================================= */
 let waveRng=rnd,specHook=null,specFx=null;
-function buildWave(w){
+// Wellen werden schon mit der Feldgröße geplant, die das Feld in dieser Welle erreicht
+function buildWave(w){const K0=FIELD_K;if(run&&!run.tut)FIELD_K=fieldTargetK(w);try{return buildWave0(w)}finally{FIELD_K=K0}}
+function buildWave0(w){
   if(vsOn())return [];
   waveRng=run&&run.daily?seeded(run.daily.seed+w*7919):rnd;const rnd2=waveRng;
   const bossW=w%5===0;
@@ -192,19 +194,22 @@ function hitNear(p,r,d){
   if(best){hit(best,d);SFX.hit(p)}
 }
 function visible(e){return !e.dead&&!e.pull&&!e.under}
+// Ameisenlegion: Gegner, um den sich die Ameisen gerade zum Riesen formen, bleibt bis zum ersten Schlag für sie reserviert
+function antClaimed(e){const c=run&&run.cmd;return !!(c&&c.ant&&!c.dead&&c.claim&&c.tgt===e&&(c.state==='form'||c.state==='body'))}
+function targetable(e){return visible(e)&&!antClaimed(e)}
 const frustum=new THREE.Frustum(),projM=new THREE.Matrix4(),_vp=new THREE.Vector3();
 function updateOnScreen(){
   camera.updateMatrixWorld();projM.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);frustum.setFromProjectionMatrix(projM);
   for(const e of enemies){_vp.set(e.g.position.x,1,e.g.position.z);e.onScreen=frustum.containsPoint(_vp)}
 }
-function frontEnemy(){let b=null,bd=1e9;for(const e of enemies){if(!visible(e))continue;const d=dist2D(e.g.position,BASE);if(d<bd){bd=d;b=e}}return b}
-function nearestEnemy(p,maxD){let b=null,bd=maxD;for(const e of enemies){if(!visible(e))continue;const d=dist2D(e.g.position,p)-e.r*.5;if(d<bd){bd=d;b=e}}return b}
+function frontEnemy(){let b=null,bd=1e9;for(const e of enemies){if(!targetable(e))continue;const d=dist2D(e.g.position,BASE);if(d<bd){bd=d;b=e}}return b}
+function nearestEnemy(p,maxD){let b=null,bd=maxD;for(const e of enemies){if(!targetable(e))continue;const d=dist2D(e.g.position,p)-e.r*.5;if(d<bd){bd=d;b=e}}return b}
 function lead(e,time){
   tmp2.set(BASE.x-e.g.position.x,0,BASE.z-e.g.position.z).normalize().multiplyScalar(e.frozen>0||e.stun>0?0:e.sp*time);
   return e.g.position.clone().add(tmp2).setY(.5);
 }
 function densest(range,from,rad){
-  let best=null,bc=-1;const list=enemies.filter(e=>visible(e)&&(!from||dist2D(e.g.position,from)<range));
+  let best=null,bc=-1;const list=enemies.filter(e=>targetable(e)&&(!from||dist2D(e.g.position,from)<range));
   const sample=list.length>30?shuffle(list.slice()).slice(0,30):list;
   for(const e of sample){let c=0;for(const o of list)if(dist2D(o.g.position,e.g.position)<rad)c++;if(c>bc){bc=c;best=e}}
   return best;
@@ -650,7 +655,7 @@ function updateShuttles(dt){
   shuttles=shuttles.filter(s=>{if(!s.done)return true;scene.remove(s.g);return false});
 }
 function updateMechs(dt,t){
-  const vis=enemies.filter(visible);
+  const vis=enemies.filter(targetable);
   mechs.forEach((m,i)=>{
     if(m.dead)return;const p=m.g.position,ud=m.g.userData;
     if(m.emerge){const em=m.emerge;em.t+=dt;const k=Math.min(1,em.t/em.dur);p.lerpVectors(em.from,em.to,k);p.y=em.from.y*(1-k);
@@ -761,7 +766,7 @@ function spawnZombie(p,fromKill,force){
   spark(p.clone().setY(.4),0x8bff6a,10,5,5);
 }
 function updateZombies(dt){
-  const vis=enemies.filter(visible);
+  const vis=enemies.filter(targetable);
   for(const z of zombies){
     if(z.dead)continue;const p=z.g.position;
     if(z.rise>0){z.rise-=dt;p.y=Math.min(0,p.y+dt*2.4);continue}
@@ -792,7 +797,7 @@ function updateCommander(dt,t){
   c.acd-=dt;const dmg=cmdStat('dmg');
   if(c.id==='cmd_sniper'){
     const range=cmdStat('range');let best=null,bs=-1;
-    for(const e of enemies){if(!visible(e)||dist2D(p,e.g.position)>range)continue;const sc=(e.T.boss?1e6:e.T.elite||e.T.nest?1e5:0)+e.hp;if(sc>bs){bs=sc;best=e}}
+    for(const e of enemies){if(!targetable(e)||dist2D(p,e.g.position)>range)continue;const sc=(e.T.boss?1e6:e.T.elite||e.T.nest?1e5:0)+e.hp;if(sc>bs){bs=sc;best=e}}
     if(best){c.face=Math.atan2(best.g.position.x-p.x,best.g.position.z-p.z);
       if(c.acd<=0){c.acd=cmdStat('reload');c.gun.getWorldPosition(tmp);tracer(tmp.clone(),best.g.position.clone().setY(1),0x9ff3ff,3);hit(best,dmg);spark(best.g.position.clone().setY(1),0x9ff3ff,8,6,5);SFX.soldier('sniper',p)}}
   }else{
@@ -909,10 +914,11 @@ function drawAnts(c,k){
   m.instanceMatrix.needsUpdate=true;
 }
 function antForm(c,e){
-  c.state='form';c.st=0;c.tgt=e;c.bodyPos.set(c.center.x,0,c.center.z);
+  c.state='form';c.st=0;c.tgt=e;c.claim=!(e.T.boss||e.T.elite||e.T.nest||e.T.gold);c.claimT=0;c.bodyPos.set(c.center.x,0,c.center.z);
   c.face=Math.atan2(e.g.position.x-c.center.x,e.g.position.z-c.center.z);c.armA=.25;c.sw=-1;c.hitDone=false;c.acd=.15;SFX.ants(c.center);
 }
 function clubImpact(c,e){
+  c.claim=false;
   const q=e.g.position.clone().setY(0),d=cmdStat('dmg')*(1+.1*Math.round(cmdStat('legion'))),a=cmdStat('aoe');
   hit(e,d);for(const o of enemies)if(o!==e&&!o.dead&&dist2D(o.g.position,q)<a+o.r*.6)hit(o,d*.5);
   blast(q.clone().setY(.15),0x8a5a3a,a*1.2,.45,true);spark(q.clone().setY(.4),0x5a4030,14,9,7);SFX.smash(q);
@@ -954,7 +960,7 @@ function updateAnts(c,dt,t){
     const db=dist2D(c.center,BASE);if(db<BASE_R+2){c.center.x=BASE.x+(c.center.x-BASE.x)/db*(BASE_R+2);c.center.z=BASE.z+(c.center.z-BASE.z)/db*(BASE_R+2)}
     if(c.state==='swarm'){antSwarmStep(c,dt,t,c.center.x,c.center.z,1,10*spd);if(dest&&rnd()<dt*2)SFX.ants(c.center)}
   }else if(c.state==='form'||c.state==='body'){
-    const e=c.tgt;
+    const e=c.tgt;c.claimT=(c.claimT||0)+dt;if(c.claimT>4)c.claim=false;
     if(c.goal||!e||e.dead||e.pull)antScatter(c,1);
     else{
       const ep=e.g.position,dx=ep.x-c.bodyPos.x,dz=ep.z-c.bodyPos.z,d=Math.hypot(dx,dz),reach=1.9*c.bs+e.r*.8;
@@ -1159,7 +1165,7 @@ function spawnRover(pos,st,emerge){
 function roverTarget(p){
   let best=null,bs=-1e18;
   for(const e of enemies){
-    if(e.dead||e.pull||e.rise>0||e.under)continue;
+    if(e.dead||e.pull||e.rise>0||e.under||antClaimed(e))continue;
     const sc=(e.T.nest?1e9:0)+e.hp-dist2D(p,e.g.position)*.5;if(sc>bs){bs=sc;best=e}
   }
   return best;
@@ -1174,7 +1180,7 @@ function updateRovers(dt,t){
     if(r.emerge){const em=r.emerge;em.t+=dt;const k=Math.min(1,em.t/em.dur);p.lerpVectors(em.from,em.to,k);p.y=em.from.y*(1-k);
       r.g.rotation.y=Math.atan2(em.to.x-em.from.x,em.to.z-em.from.z);r.face=r.g.rotation.y;if(k>=1){r.emerge=null;p.y=0}continue}
     if(r.hp<=0){roverBoom(r);continue}
-    if(!r.tg||r.tg.dead||r.tg.pull||r.tg.under||rnd()<dt*.5)r.tg=roverTarget(p);
+    if(!r.tg||r.tg.dead||r.tg.pull||r.tg.under||antClaimed(r.tg)||rnd()<dt*.5)r.tg=roverTarget(p);
     const e=r.tg;r.light.visible=Math.sin(t*(e?18:5))>0;
     if(!e){r.body.position.y=0;continue}
     const dx=e.g.position.x-p.x,dz=e.g.position.z-p.z,d=Math.hypot(dx,dz);
@@ -1226,7 +1232,7 @@ function updateMarines(dt,t){
     else if(order==='auto'){anchor=fieldPos(i+1,-8);engage=16}
     const from=anchor||p;
     let tg=null,bd=order==='attack'&&!anchor?1e9:engage;
-    for(const e of enemies){if(!visible(e))continue;const d=dist2D(e.g.position,from);if(d<bd){bd=d;tg=e}}
+    for(const e of enemies){if(!targetable(e))continue;const d=dist2D(e.g.position,from);if(d<bd){bd=d;tg=e}}
     let goal=null;
     if(tg){const d=dist2D(p,tg.g.position);if(d>tg.r+1.2)goal=tg.g.position}else goal=anchor;
     let moving=false;
@@ -1445,7 +1451,7 @@ function updateSoldiers(dt,t){
     for(const o of alive){if(o===so)continue;const dx=p.x-o.g.position.x,dz=p.z-o.g.position.z,d=Math.hypot(dx,dz);if(d<1&&d>.001){p.x+=dx/d*(1-d)*.5;p.z+=dz/d*(1-d)*.5}}
     const db=dist2D(p,BASE);if(db<BASE_R+1){p.x=BASE.x+(p.x-BASE.x)/db*(BASE_R+1);p.z=BASE.z+(p.z-BASE.z)/db*(BASE_R+1)}
     clampField(p);
-    const target=(tg&&visible(tg)&&dist2D(p,tg.g.position)<=range+tg.r*.5)?tg:nearestEnemy(p,range);
+    const target=(tg&&targetable(tg)&&dist2D(p,tg.g.position)<=range+tg.r*.5)?tg:nearestEnemy(p,range);
     if(target){
       so.face=Math.atan2(target.g.position.x-p.x,target.g.position.z-p.z);
       so.cd-=dt;if(so.cd<=0){so.cd=C.rate*(.9+rnd()*.2);soldierFire(so,target,dmg*buff*auraMul(p),range)}
@@ -2113,7 +2119,7 @@ function update(dt,t){
   domeHit=Math.max(0,domeHit-dt*2);domeMat.opacity=.1+domeHit*.45+Math.sin(t*2)*.02;
   shake=Math.max(0,shake-dt*3);
   {const tk=run&&!run.tut?fieldTargetK(run.wave):1;FIELD_K+=(tk-FIELD_K)*Math.min(1,dt*1.2);
-   const fd=fieldDims();camLook.set(LOOK.x,LOOK.y,LOOK.z+(fd.ZF-36)*.45);
+   camLook.set(LOOK.x,LOOK.y,LOOK.z+40*(FIELD_K-1)*.45);
    camera.position.copy(CAM).sub(LOOK).multiplyScalar(FIELD_K).add(camLook);}
   camera.lookAt(camLook);
   // Sichtbarkeit immer mit der normalen Kamera, damit Zoomen das Spiel nicht verändert

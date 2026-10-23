@@ -147,6 +147,17 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 .hangar .hg.lock{opacity:.45;width:auto;padding:0 3px;grid-auto-flow:column;gap:2px}.hangar .hg.lock small{font-size:9px;color:#9aa3b8}
 .mver{font-size:11px;color:#6a7288;margin:4px 0 0}
 .gfxrow .seg{flex:1}.gfxseg button{padding:6px 4px;font-size:12px}
+body.mirroring #hudTop:not(.mir),body.mirroring #abilBar:not(.mir),body.mirroring #stage>*:not(canvas):not(.mir):not(#specBar){display:none!important}
+.mir{pointer-events:none!important}
+body.mirroring #specBar{z-index:70;opacity:.9}
+#specCursor{position:fixed;z-index:90;pointer-events:none;width:22px;height:22px;transition:left .07s linear,top .07s linear;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+#specCursor i{position:absolute;left:-7px;top:-7px;width:18px;height:18px;border-radius:50%;border:2px solid #ffd23f;opacity:0;transform:scale(.4);transition:opacity .12s,transform .12s}
+#specCursor.down i{opacity:1;transform:scale(1)}
+#frNotes{position:fixed;z-index:45;right:16px;bottom:84px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:none;max-width:calc(100% - 32px)}
+.frnote{display:flex;align-items:center;gap:8px;background:rgba(24,29,44,.96);border:1px solid var(--line);border-left:4px solid #6a7288;border-radius:4px;padding:7px 12px;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.45);opacity:0;transform:translateX(20px);transition:opacity .25s,transform .25s}
+.frnote.show{opacity:1;transform:none}
+.frnote i{width:9px;height:9px;border-radius:50%;background:#6a7288;flex:0 0 auto}
+.frnote.on{border-left-color:#4fc07a}.frnote.on i{background:#4fc07a;box-shadow:0 0 6px #4fc07a}
 .radio{position:absolute;z-index:4;left:10px;bottom:120px;max-width:min(360px,calc(100% - 110px));background:rgba(14,30,22,.92);border:1px solid #4fc07a;border-left:4px solid #4fc07a;border-radius:4px;padding:6px 10px;display:flex;flex-direction:column;gap:2px;font-size:13px;pointer-events:none}
 .radio .lbl{color:#7cf0a8}.radio.in{animation:rin .3s ease-out}
 @keyframes rin{0%{opacity:0;transform:translateX(-20px)}100%{opacity:1;transform:none}}
@@ -341,7 +352,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 </style>
 
 <div id="app">
-  <header class="hud">
+  <header class="hud" id="hudTop">
     <div class="stat"><span class="lbl">Welle</span><span class="val" id="hWave">1</span></div>
     <div class="stat"><span class="lbl">Credits</span><span class="val cr" id="hCr">0</span></div>
     <div class="bars">

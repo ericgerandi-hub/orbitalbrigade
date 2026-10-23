@@ -74,7 +74,7 @@ function cluster(){
 }
 function pickFighter(p){
   let best=null,bs=-1e9;
-  for(const e of enemies){if(!visible(e)||e.T.nest)continue;
+  for(const e of enemies){if(!targetable(e)||e.T.nest)continue;
     const s=(e.T.fly?60:0)+(e.T.boss?20:0)-dist2D(e.g.position,BASE)*.6-dist2D(e.g.position,p)*.25;if(s>bs){bs=s;best=e}}
   return best;
 }
@@ -82,7 +82,7 @@ function patrolPt(pl,t){const a=t*.35+pl.i*1.7;return _cv.set(Math.sin(a)*14,pl.
 
 function flyJaeger(pl,dt,t){
   const p=pl.p,A=pl.A;
-  if(!pl.tg||!visible(pl.tg)||rnd()<dt*.25)pl.tg=pickFighter(p);
+  if(!pl.tg||!targetable(pl.tg)||rnd()<dt*.25)pl.tg=pickFighter(p);
   const e=pl.tg;
   if(pl.ext>0||!e){pl.ext-=dt;acSteer(pl,e&&pl.ext>0?p.clone().addScaledVector(acFwd(pl),20).setY(A.alt+2):patrolPt(pl,t),dt);return}
   const ep=e.g.position,hd=dist2D(p,ep),ang=Math.abs(angD(Math.atan2(ep.x-p.x,ep.z-p.z),pl.yaw));
@@ -119,7 +119,7 @@ function flyGunship(pl,dt,t){
   const a=Math.atan2(p.z-c.z,p.x-c.x)+.75;acSteer(pl,_cv.set(c.x+Math.cos(a)*11,A.alt,c.z+Math.sin(a)*11),dt);
   pl.fireT-=dt;
   if(pl.fireT<=0){
-    let tg=null,bd=15;for(const e of enemies){if(!visible(e))continue;const d=dist2D(e.g.position,c);if(d<bd){bd=d;tg=e}}
+    let tg=null,bd=15;for(const e of enemies){if(!targetable(e))continue;const d=dist2D(e.g.position,c);if(d<bd){bd=d;tg=e}}
     if(tg){pl.fireT=.55;const ap=lead(tg,.25).setY(0);tracer(p.clone().setY(p.y-.3),ap.clone().setY(.4),0xff9a3d,3);
       CV.shells.push({at:ap,t:.15,cosm:false});SFX.weapon('kanone',ap);pl.fg=.4}
     else pl.fireT=.3;
@@ -271,7 +271,7 @@ function hjLaunch(j){
 function hjDock(j){j.st='hangar';j.rearm=R('hangar','reload');if(j.g)scene.remove(j.g);spark(j.p.clone(),0x5fd0ff,4,3,2)}
 function hjFly(j,dt){
   const p=j.p;
-  if(!j.tg||!visible(j.tg)||(j.mode==='climb'&&rnd()<dt*.3)){const m=typeof markedTarget==='function'?markedTarget():null;j.tg=m&&visible(m)?m:pickFighter(p)}
+  if(!j.tg||!targetable(j.tg)||(j.mode==='climb'&&rnd()<dt*.3)){const m=typeof markedTarget==='function'?markedTarget():null;j.tg=m&&targetable(m)?m:pickFighter(p)}
   const e=j.tg;
   if(!e){acSteer(j,patrolPt(j,performance.now()/1000),dt);return}
   const ep=e.g.position,hd=dist2D(p,ep),ang=Math.abs(angD(Math.atan2(ep.x-p.x,ep.z-p.z),j.yaw));

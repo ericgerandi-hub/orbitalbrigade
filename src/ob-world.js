@@ -8,7 +8,8 @@ const rnd=Math.random;
 let COSMETIC=false;
 // Größe des Schlachtfelds: wächst nach jedem Boss (1 = Startgröße)
 let FIELD_K=1;
-function fieldDims(){return{X:23*FIELD_K,ZF:36+40*(FIELD_K-1),ZB:-42}}
+// ZF wächst so schnell wie der sichtbare untere Bildrand, damit Gegner immer außerhalb des Bildes auftauchen
+function fieldDims(){return{X:23*FIELD_K,ZF:36+66*(FIELD_K-1),ZB:-42}}
 const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const cv=$('c');
 let renderer=null;
