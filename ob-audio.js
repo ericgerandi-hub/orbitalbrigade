@@ -186,6 +186,7 @@ const SFX=(()=>{
   function smash(p){if(!limit('smash',120))return;tone('sine',110,30,.4,.5,p);noise(.3,.35,'lowpass',1200,100,p);noise(.1,.15,'bandpass',600,300,p,{delay:.03})}
   function saw(p){if(!limit('saw',140))return;tone('sawtooth',95+Math.random()*20,80,.16,.06,p,{lp:1400});noise(.14,.07,'bandpass',2600,1800,p,{q:2})}
   function rover(p){if(!limit('rover',300))return;tone('square',70,90,.25,.04,p,{lp:500})}
+  function radio(){noise(.12,.05,'bandpass',1800,1400,null,{q:2});tone('square',1200,1200,.05,.04,null,{delay:.13,lp:2500});tone('square',900,900,.05,.03,null,{delay:.2,lp:2500})}
   function mark(mine){tone('sine',mine?1320:990,mine?1760:1320,.12,.09,null);tone('sine',mine?1760:1320,mine?1760:1320,.1,.07,null,{delay:.1})}
   function slowSwoosh(on){if(!ok())return;if(on)tone('sine',900,180,.35,.07,null);else tone('sine',180,900,.25,.06,null)}
 
@@ -263,7 +264,7 @@ const SFX=(()=>{
   }
   function setMusicVolume(v){musicVol=Math.max(0,Math.min(100,Math.round(v)));ls.set('orbitalbrigade-music',String(musicVol));if(mus.bus)mus.bus.gain.setTargetAtTime(musGain(),ctx.currentTime,.05)}
   function slowmo(k){if(!mus.lp)return;mus.lp.frequency.setTargetAtTime(700*Math.pow(18000/700,1-k),ctx.currentTime,.12)}
-  return{mark,saw,rover,guided,dig,grab,meteor,alarm,blackout,pickup,ants,smash,slowSwoosh,music,setMusicVolume,get musicVolume(){return musicVol},slowmo,jet2,mg,unlock,setMuted,setVolume,get volume(){return vol},get muted(){return muted},weapon,boom,hit,death,roar,baseHit,overheat,ability,whistle,jet,laser,place,podFall,podOpen,thump,sentry,mortar,soldier,spit,click,buy,unlockJingle,deny,levelUp,horn,waveClear,gameOver,ambient};
+  return{radio,mark,saw,rover,guided,dig,grab,meteor,alarm,blackout,pickup,ants,smash,slowSwoosh,music,setMusicVolume,get musicVolume(){return musicVol},slowmo,jet2,mg,unlock,setMuted,setVolume,get volume(){return vol},get muted(){return muted},weapon,boom,hit,death,roar,baseHit,overheat,ability,whistle,jet,laser,place,podFall,podOpen,thump,sentry,mortar,soldier,spit,click,buy,unlockJingle,deny,levelUp,horn,waveClear,gameOver,ambient};
 })();
 addEventListener('pointerdown',()=>SFX.unlock(),{capture:true});
 addEventListener('keydown',()=>SFX.unlock(),{capture:true});

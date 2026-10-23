@@ -8,7 +8,7 @@
    Fähigkeiten über seine eigene Presence zurück.
    ========================================================= */
 const NAME_KEY='orbitalbrigade-name';
-const GAME_VER='2026-10-23h';
+const GAME_VER='2026-10-24a';
 const ET_KEYS=Object.keys(ET),ST_KEYS=['sentry','wall','minen','moerser','kaserne','ring','graeber'],SC_KEYS=['rifle','flamer','rpg','sniper'];
 const ANT_ST=['swarm','form','body','scatter','flood','dying','gone'],EV_KEYS=['meteor','supply','blackout','frenzy','gold'];
 $('bMP').hidden=!window.OB_NET;
@@ -193,7 +193,7 @@ function readAbilities(P){
 function myInputs(){
   const aimP=hold||mouse.p;
   return{aim:aimP?[r1(aimP.x),r1(aimP.z)]:null,f:hold&&!run.placing?1:0,wp:WEAPON_IDS.indexOf(run.sel),
-    ab:ABILITY_IDS.map(i=>MP.ab[i]||0),tw:turrets.length,sh:run&&run.ship||M.shipSel||'bastion',by:MP.buys||[],ag:MP.again||0,mk:MP.mk||null,pt:Math.round(performance.now()),pe:MP.peT||0,pd:MP.peAt?Math.round(performance.now()-MP.peAt):0,wl:run.weapons.map(w=>WEAPON_IDS.indexOf(w)),o:run.order,om:run.mechOrder,mo:run.marOrder,cm:cmdSnap(),zo:zombieSnap(),fx:MP.fx.slice(-25),v:GAME_VER};
+    ab:ABILITY_IDS.map(i=>MP.ab[i]||0),qc:MP.qc||null,tw:turrets.length,sh:run&&run.ship||M.shipSel||'bastion',by:MP.buys||[],ag:MP.again||0,mk:MP.mk||null,pt:Math.round(performance.now()),pe:MP.peT||0,pd:MP.peAt?Math.round(performance.now()-MP.peAt):0,wl:run.weapons.map(w=>WEAPON_IDS.indexOf(w)),o:run.order,om:run.mechOrder,mo:run.marOrder,cm:cmdSnap(),zo:zombieSnap(),fx:MP.fx.slice(-25),v:GAME_VER};
 }
 
 /* ---------- Host ---------- */
@@ -201,7 +201,7 @@ function hostSnap(){
   const ph=phase==='fight'?'f':phase==='shop'?'s':phase==='over'?'o':'l';
   const en=[];
   const list=enemies.filter(e=>!e.dead).sort((a,b)=>(b.T.nest?1:0)-(a.T.nest?1:0)||(b.onScreen?1:0)-(a.onScreen?1:0)||dist2D(a.g.position,BASE)-dist2D(b.g.position,BASE)).slice(0,110);
-  for(const e of list)en.push(e.id,ET_KEYS.indexOf(e.type),r1(e.g.position.x),r1(e.g.position.z),Math.ceil(e.hp),(e.frozen>0?1:0)|(e.burn>0?2:0)|(e.stun>0?4:0));
+  for(const e of list)en.push(e.id,ET_KEYS.indexOf(e.type),r1(e.g.position.x),r1(e.g.position.z),Math.ceil(e.hp),(e.frozen>0?1:0)|(e.burn>0?2:0)|(e.stun>0?4:0)|(e.under?8:0)|(e.mut?16*(MUT_KEYS.indexOf(e.mut)+1):0));
   const so=[];for(const s of soldiers.slice(0,50))if(!s.dead&&s.g.visible)so.push(s.id,SC_KEYS.indexOf(s.cls),r1(s.g.position.x),r1(s.g.position.z),Math.round(s.g.rotation.y*100),s.own||0);
   const sr=[];for(const s of structs.slice(0,40)){if(!s.active)continue;
     const hpf=s.type==='minen'?s.mines.reduce((m,x)=>m|(1<<x.i),0):s.type==='graeber'?s.diggers.length*256+s.diggers.reduce((m,d,i)=>m|(d.gone?0:1<<i),0):Math.round(s.hp/s.max*100);
@@ -214,7 +214,7 @@ function hostSnap(){
   const sup=supply?[r1(supply.p.x),r1(supply.p.z),r1(supply.g.position.y)]:null;
   const o=Object.assign(myInputs(),{n:MP.name,r:'h',id:MP.runId,ph,wv:run.wave,st:run.start,hp:Math.ceil(run.hp),mx:Math.round(R('basis','maxhp')),
     eb:Math.round((run.earnBase||0)*10)/10,k:run.kills,env:[Math.round(env.t*1000),Math.round(env.rainT*100),Math.round(env.fogT*100)],
-    en,so,sr,pd,me,sh,rv,mr,sup,mi:mapIdx,md:MP.vs?'v':'c',ss:MP.swarmSide||'g',eq:M.eq?1:0,res:MP.vsRes||'',vs:MP.vs?vsSnap():null,bl:ITEMS.basis.stats.map(k=>runLv(run,'basis',k)),ev:run.ev?EV_KEYS.indexOf(run.ev.id):-1,bo:Math.ceil(run.blackout||0),fk:Math.round(FIELD_K*100)});
+    en,so,sr,pd,me,sh,rv,mr,sup,mi:mapIdx,cb:comboMul(),cc:run.combo||0,md:MP.vs?'v':'c',ss:MP.swarmSide||'g',eq:M.eq?1:0,res:MP.vsRes||'',vs:MP.vs?vsSnap():null,bl:ITEMS.basis.stats.map(k=>runLv(run,'basis',k)),ev:run.ev?EV_KEYS.indexOf(run.ev.id):-1,bo:Math.ceil(run.blackout||0),fk:Math.round(FIELD_K*100)});
   return o;
 }
 function hostApplyGuest(P,dt){
@@ -272,16 +272,18 @@ function guestFollowHost(P,dt){
   const eb=num(P.eb,0,1e9);
   if(MP.ebSeen==null)MP.ebSeen=eb;
   const d=eb-MP.ebSeen;
-  if(d>0){MP.ebSeen=eb;run.credits+=d*R('allg','credits');run.xp+=d*R('allg','xp');run.medals+=d*.12*R('allg','medals');
+  if(d>0){MP.ebSeen=eb;run.credits+=d*R('allg','credits')*num(P.cb,1,5,1);run.xp+=d*R('allg','xp');run.medals+=d*.12*R('allg','medals');
     while(run.xp>=xpNeed(run.level)){run.xp-=xpNeed(run.level);run.level++;run.pending++}}
+  {const nk=num(P.k,0,1e9);if(nk>run.kills){M.stats.kills+=nk-run.kills}}
   run.kills=num(P.k,0,1e9);
+  showCombo(Math.round(num(P.cc,0,1e6)),num(P.cb,1,5,1));
   if(typeof P.mi==='number'&&P.mi!==mapIdx){setMap(P.mi);env.snow=!!MAP.snow;toast('Karte: '+MAP.name+' · '+MAP.sub)}
   if(Array.isArray(P.bl)){let ch=false;ITEMS.basis.stats.forEach((k,i)=>{const h=Math.round(num(P.bl[i],0,50)),key=lvKey('basis',k);if(h>(run.lv[key]||0)){run.lv[key]=h;ch=true}});if(ch&&phase==='shop'&&runCat==='basis')renderRunShop()}
   const bo=num(P.bo,0,60);if(bo>0&&!(run.blackout>0)){SFX.blackout(true);flash(.55,'#000');banner('STROMAUSFALL<small>Fähigkeiten und Unterstützung fallen kurz aus</small>')}
   run.blackout=bo;$('app').classList.toggle('blackout',bo>0);
   FIELD_K=num(P.fk,100,300,100)/100;
   const wv=num(P.wv,1,1e6,run.wave);
-  if(P.ph==='o'&&phase!=='over'){if(MP.vs)endRun(P.res==='s'&&!isSwarm(),vsTitle(P.res));else endRun(true);return}
+  if(P.ph==='o'&&phase!=='over'){if(MP.vs){vsRecord(P.res);endRun(P.res==='s'&&!isSwarm(),vsTitle(P.res))}else endRun(true);return}
   if(MP.vs)vsGuestRead(P);
   if(P.ph==='s'&&phase==='fight'&&wv>run.wave){
     const bonus=(15+run.wave*4)*run.mult*R('allg','credits');
@@ -314,6 +316,8 @@ function applySnap(P){
     if(e.localDead&&now-e.localDead>1500){e.localDead=0;e.dead=false;e.g.visible=true}
     if(!e.localDead)e.hp=hp;
     e.frozen=f&1?.3:0;e.stun=f&4?.3:0;e.burnVis=!!(f&2);
+    e.under=!!(f&8);if(!e.localDead)e.g.visible=!e.under;
+    const mi=(f>>4)&7;if(mi&&!e.mutIcon&&MUT_KEYS[mi-1]){e.mut=MUT_KEYS[mi-1];const ic=makeMutIcon(e.mut);ic.position.y=2.4*e.T.s+1.1;e.g.add(ic);e.mutIcon=ic}
   }
   for(const [id,e] of MP.repE)if(!seen.has(id)){
     if(!e.localDead){const p=e.g.position.clone().setY(.8);spark(p,e.T.col,e.T.boss?40:10,e.T.boss?18:9);SFX.death(p,e.T.boss)}
@@ -422,6 +426,7 @@ function mpGuestUpdate(dt,t){
     const dx=e.tx-p.x,dz=e.tz-p.z,moving=Math.hypot(dx,dz)>.02;
     p.x+=dx*k;p.z+=dz*k;
     if(moving){e.g.rotation.y=lerpAngle(e.g.rotation.y,Math.atan2(dx,dz),Math.min(1,dt*8));e.step+=dt*e.sp*2.2;animLegs(e)}
+    if(e.T.fly){p.y=3.2+Math.sin(t*3+e.id)*.35;if(e.wings)for(const w of e.wings)w.w.rotation.z=w.sd*Math.sin(t*32+e.id)*.55}
     if(e.burn>0){e.burn-=dt;hit(e,e.burnDps*dt,true);if(rnd()<dt*8)spark(p.clone().setY(1),0xff7a2a,1,2,4)}
     else if(e.burnVis&&rnd()<dt*6)spark(p.clone().setY(1),0xff7a2a,1,2,4);
     e.fl=Math.max(0,e.fl-dt);
@@ -492,6 +497,7 @@ function mpTick(dt,t){
     const mk=MP.P.mk;if(Array.isArray(mk)&&mk[1]!==MP.mkSeen){MP.mkSeen=mk[1];const e=enemies.find(x=>x.id===mk[0]&&!x.dead);if(e){markEnemy(e,1);toast(MP.partnerName+' hat einen Gegner markiert')}}MP.pup.d=MP.P.cm||null;applyZombiePuppets(MP.P.zo,dt)}
   puppetTick(dt,t);
   if(MP.P){
+    if(Array.isArray(MP.P.qc)&&MP.P.qc[0]>(MP.qcSeen||0)){if(phase!=='menu'&&typeof showChat==='function')showChat(1,MP.P.qc[1]);MP.qcSeen=MP.P.qc[0]}
     if(MP.role==='guest'&&(MP.P.ss==='h'||MP.P.ss==='g'))MP.swarmSide=MP.P.ss;
     if(MP.role==='host'&&typeof MP.P.swp==='number'&&MP.P.swp!==MP.swpSeen){if(MP.swpSeen!=null&&phase==='menu'){MP.swarmSide=MP.swarmSide==='h'?'g':'h';renderLobby()}MP.swpSeen=MP.P.swp}
     if(!MP.vs&&typeof MP.P.sh==='string')setShipModel(ship2,MP.P.sh);

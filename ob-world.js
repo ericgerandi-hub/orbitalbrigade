@@ -204,6 +204,40 @@ const flora=[];
   place(pine,25,behind,.3,1,1,1.7);
   place(leafy,15,behind,.25,.95,1,1.5);
 }
+/* ---------- Kolonie: wächst mit dem Terraforming, Fenster leuchten nachts ---------- */
+const colonyWin=new THREE.MeshStandardMaterial({color:0xffe9a8,emissive:0xffd27a,emissiveIntensity:.2,roughness:.5});
+{
+  const wall=new THREE.MeshStandardMaterial({color:0xb8bcc4,roughness:.7,metalness:.2}),roof=new THREE.MeshStandardMaterial({color:0x6a7684,roughness:.6,metalness:.4});
+  const glass=new THREE.MeshStandardMaterial({color:0x8fd8ff,emissive:0x1a4a6a,transparent:true,opacity:.7,roughness:.1});
+  const road=new THREE.MeshStandardMaterial({color:0x3a3c42,roughness:1}),solar=new THREE.MeshStandardMaterial({color:0x1d2a4a,roughness:.3,metalness:.6});
+  const lamp=new THREE.MeshBasicMaterial({color:0xff5d5d});
+  const cb=(w,h,d,mat,x,y,z,par)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);par.add(m);return m};
+  const r=(()=>{let a=9001;return()=>{a=(a*1103515245+12345)&0x7fffffff;return a/0x7fffffff}})();
+  function habitat(){const g=new THREE.Group();const d=new THREE.Mesh(new THREE.SphereGeometry(2.2,14,8,0,Math.PI*2,0,Math.PI/2),glass);g.add(d);
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(2.4,2.4,.5,16),wall);b.position.y=.25;g.add(b);cb(1,1.2,.4,colonyWin,0,.7,2.3,g);return g}
+  function block(){const g=new THREE.Group(),h=2+r()*3;cb(4,h,3,wall,0,h/2,0,g);cb(4.2,.3,3.2,roof,0,h+.15,0,g);
+    for(let i=0;i<Math.floor(h);i++)for(const x of [-1.2,0,1.2])cb(.6,.4,.05,colonyWin,x,.8+i,1.53,g);return g}
+  function tower(){const g=new THREE.Group();cb(1.2,7,1.2,wall,0,3.5,0,g);cb(2.4,1,2.4,roof,0,7.4,0,g);
+    const l=new THREE.Mesh(new THREE.SphereGeometry(.25,8,6),lamp);l.position.y=8.2;g.add(l);g.userData.lamp=l;cb(.5,.4,.05,colonyWin,0,6,.62,g);return g}
+  function panels(){const g=new THREE.Group();for(let i=0;i<3;i++){const p=cb(2.4,.08,1.4,solar,i*2.6-2.6,1,0,g);p.rotation.x=-.5;cb(.12,1,.12,roof,i*2.6-2.6,.5,0,g)}return g}
+  function silo(){const g=new THREE.Group();const c=new THREE.Mesh(new THREE.CylinderGeometry(1.3,1.3,4,12),wall);c.position.y=2;g.add(c);
+    const t=new THREE.Mesh(new THREE.SphereGeometry(1.3,12,6,0,Math.PI*2,0,Math.PI/2),roof);t.position.y=4;g.add(t);return g}
+  const kinds=[habitat,block,block,tower,panels,silo,habitat];
+  const spots=[];
+  for(let i=0;i<34;i++){
+    let x,z,k=0;do{const side=r()<.5?-1:1;x=side*(30+r()*55);z=-120+r()*140;if(r()<.35){x=(r()-.5)*60;z=-70-r()*60}k++}
+    while(k<30&&(spots.some(q=>Math.hypot(q[0]-x,q[1]-z)<9)||(Math.abs(x)<27&&z>-48)));
+    spots.push([x,z]);
+    const g=kinds[(r()*kinds.length)|0]();g.position.set(x,0,z);g.rotation.y=Math.round(r()*4)*Math.PI/2+(r()-.5)*.3;g.visible=false;
+    g.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});scene.add(g);
+    flora.push({g,th:.08+(i/34)*.85,s:1,k:0,col:true});
+  }
+  // Straßen hinter dem Generator und an den Seiten
+  [[0,-62,6,60,0],[-34,-40,90,5,0],[34,-40,90,5,0],[0,-95,80,5,0]].forEach(([x,z,w,d],i)=>{
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),road);m.rotation.x=-Math.PI/2;m.position.set(x,.03,z);m.receiveShadow=true;m.visible=false;scene.add(m);
+    flora.push({g:m,th:.12+i*.1,s:1,k:0,col:true});
+  });
+}
 let terraShown=-1,terraAlpha=-1;
 const _cA=new THREE.Color(),_cB=new THREE.Color();
 function lerpHex(a,b,k){return _cA.setHex(a).lerp(_cB.setHex(b),k).getHex()}
@@ -251,6 +285,7 @@ function updateEnv(dt){
   hemi.groundColor.setHex(lerpHex(MAP.hemiG,0x2e4a24,v));
   _e1.setHex(lerpHex(0xffffff,0xb8e6dc,v*.8)).multiply(_e2).lerp(_e3.setHex(0x8a949c),r*.5);
   skyMesh.material.color.copy(_e1);
+  colonyWin.emissiveIntensity=.15+1.3*(1-L);
   rain.visible=r>.02;
   if(rain.visible){
     rainMat.opacity=(MAP.snow?.7:.38)*r;const fall=MAP.rainFall*dt,drift=(MAP.snow?18:10)*dt;
@@ -311,13 +346,14 @@ const SHIPS=[
 ];
 const SHIP_MOD_TXT={wdmg:'Waffenschaden',wrate:'Feuerrate',hp:'Generator-Schild',regen:'Schild-Regeneration',sup:'Abklingzeit Unterstützung',abil:'Abklingzeit Fähigkeiten',adm:'Schaden Fähigkeiten'};
 const shipMats={};
-function shipMatsFor(S){
-  if(shipMats[S.id])return shipMats[S.id];
-  const hull=new THREE.MeshStandardMaterial({map:hullTex,color:S.tint,roughness:.62,metalness:.55});
-  const big=new THREE.MeshStandardMaterial({map:hullTexBig,color:S.tint,roughness:.62,metalness:.55});
+function shipMatsFor(S,paint){
+  const key=S.id+'|'+(paint||'std');if(shipMats[key])return shipMats[key];
+  const tint=paint&&typeof PAINTS!=='undefined'&&PAINTS[paint]&&PAINTS[paint].c!=null?PAINTS[paint].c:S.tint;
+  const hull=new THREE.MeshStandardMaterial({map:hullTex,color:tint,roughness:.62,metalness:.55});
+  const big=new THREE.MeshStandardMaterial({map:hullTexBig,color:tint,roughness:.62,metalness:.55});
   const acc=new THREE.MeshStandardMaterial({color:S.glow,emissive:S.glow,emissiveIntensity:.35,roughness:.4});
   const line=new THREE.MeshBasicMaterial({color:S.glow});
-  return shipMats[S.id]={hull,big,acc,line};
+  return shipMats[key]={hull,big,acc,line};
 }
 function hullFrom(g,M,sx,sz,depth,y){
   const s=new THREE.Shape();
@@ -410,11 +446,11 @@ function buildPhantom(g,M){
   engines(g,[-1.5,1.5],-14.6,0xc77dff,.9);
 }
 const SHIP_BUILD={bastion:buildBastion,hammer:buildHammer,arche:buildArche,aegis:buildAegis,phantom:buildPhantom};
-function setShipModel(obj,id){
-  const S=SHIPS.find(x=>x.id===id)||SHIPS[0];if(obj.userData.model&&obj.userData.shipId===S.id)return;
+function setShipModel(obj,id,paint){
+  const S=SHIPS.find(x=>x.id===id)||SHIPS[0];paint=paint||'std';if(obj.userData.model&&obj.userData.shipId===S.id&&obj.userData.paint===paint)return;
   if(obj.userData.model)obj.remove(obj.userData.model);
-  const g=new THREE.Group();g.userData.glows=[];SHIP_BUILD[S.id](g,shipMatsFor(S));
-  obj.add(g);obj.userData.model=g;obj.userData.shipId=S.id;obj.userData.glows=g.userData.glows;
+  const g=new THREE.Group();g.userData.glows=[];SHIP_BUILD[S.id](g,shipMatsFor(S,paint));
+  obj.add(g);obj.userData.model=g;obj.userData.shipId=S.id;obj.userData.paint=paint;obj.userData.glows=g.userData.glows;
 }
 setShipModel(ship,'bastion');
 /* Zweites Schiff für den Mitspieler und Namensschilder */
@@ -459,6 +495,9 @@ const ET={
   boss:   {name:'Brutkönigin',hp:700,sp:1.9,r:3.6,s:3.4,rew:120,dmg:45,col:0x6e2a5a,boss:true},
   titan:  {name:'Titan',hp:2600,sp:1.4,r:5,s:4.8,rew:400,dmg:90,col:0x4a1f45,boss:true},
   nest:   {name:'Brutloch',hp:350,sp:0,r:2.8,s:1,rew:60,dmg:0,col:0x6a2a20,nest:true},
+  flieger:{name:'Flieger',hp:28,sp:7,r:.9,s:.9,rew:5,dmg:9,col:0x4a8ad0,fly:true},
+  heiler: {name:'Heiler',hp:55,sp:3.6,r:1.1,s:1.05,rew:10,dmg:6,col:0x4fc07a,healer:true},
+  wuehler:{name:'Wühler',hp:48,sp:5,r:1,s:1,rew:8,dmg:15,col:0x9a6a3a,burrow:true},
   gold:   {name:'Goldkäfer',hp:70,sp:10,r:.9,s:.95,rew:60,dmg:0,col:0xffc531,gold:true},
   elite:  {name:'Brutwächter',hp:260,sp:2.8,r:2.3,s:2.2,rew:28,dmg:26,col:0xa8344f,elite:true},
 };
@@ -473,6 +512,21 @@ const legG=(()=>{const a=new THREE.CylinderGeometry(.075,.12,1,7);a.translate(0,
 const mandG=(()=>{const g=new THREE.ConeGeometry(.08,.5,5);g.rotateX(Math.PI/2);g.translate(0,0,.25);return g})();
 const antG=(()=>{const g=new THREE.CylinderGeometry(.012,.025,1,4);g.translate(0,.5,0);return g})();
 const bellyMat=new THREE.MeshStandardMaterial({color:0x2a1a1a,roughness:.6});
+const wingGeo=(()=>{const g=new THREE.PlaneGeometry(1.9,.75);g.rotateX(-Math.PI/2);return g})();
+const wingMat=new THREE.MeshBasicMaterial({color:0xbfe4ff,transparent:true,opacity:.42,side:THREE.DoubleSide,depthWrite:false});
+const healMat=new THREE.MeshStandardMaterial({color:0x7cff9a,emissive:0x2a8a3a,roughness:.3,transparent:true,opacity:.85});
+/* Symbole für Mutationen über dem Gegner */
+const MUT_KEYS=['explode','split','armor','fast'];
+const MUT_NAMES={explode:'Explodiert beim Tod',split:'Teilt sich',armor:'Gepanzert',fast:'Flink'};
+const mutTex={};
+MUT_KEYS.forEach(k=>{mutTex[k]=canvasTex(64,64,(g)=>{
+  g.fillStyle='rgba(11,14,26,.8)';g.beginPath();g.arc(32,32,29,0,6.28);g.fill();g.lineWidth=4;
+  if(k==='explode'){g.strokeStyle='#ff6a3d';g.stroke();g.fillStyle='#ffb04a';g.beginPath();for(let i=0;i<16;i++){const a=i/16*6.28,r=i%2?9:20;g.lineTo(32+Math.cos(a)*r,32+Math.sin(a)*r)}g.closePath();g.fill()}
+  else if(k==='split'){g.strokeStyle='#c77dff';g.stroke();g.fillStyle='#e0b0ff';g.beginPath();g.arc(22,32,9,0,6.28);g.fill();g.beginPath();g.arc(42,32,9,0,6.28);g.fill()}
+  else if(k==='armor'){g.strokeStyle='#9fb3c8';g.stroke();g.fillStyle='#c8d6e6';g.beginPath();g.moveTo(32,13);g.lineTo(48,20);g.lineTo(45,38);g.lineTo(32,51);g.lineTo(19,38);g.lineTo(16,20);g.closePath();g.fill()}
+  else{g.strokeStyle='#ffd23f';g.stroke();g.fillStyle='#ffd23f';[[16,0],[30,0]].forEach(([x])=>{g.beginPath();g.moveTo(x,18);g.lineTo(x+12,32);g.lineTo(x,46);g.lineTo(x+6,46);g.lineTo(x+18,32);g.lineTo(x+6,18);g.closePath();g.fill()})}
+})});
+function makeMutIcon(k){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:mutTex[k],transparent:true,depthTest:false}));s.scale.set(1.5,1.5,1);s.renderOrder=12;return s}
 function makeBug(type){
   const T=ET[type],g=new THREE.Group(),inner=new THREE.Group();g.add(inner);inner.scale.setScalar(T.s);
   const mat=new THREE.MeshStandardMaterial({color:T.col,roughness:T.gold?.25:.42,metalness:T.gold?.85:.08,emissive:0x000000});
@@ -502,7 +556,12 @@ function makeBug(type){
   if(type==='panzer'||T.boss||T.elite){for(let i=0;i<3;i++){const p=new THREE.Mesh(G.plate,plateMat);p.position.set(0,1.2+(i===1?.08:0),.35-i*.55);p.rotation.x=-0.2;p.castShadow=true;inner.add(p)}}
   if(T.boss||T.elite){for(let i=0;i<(T.elite?3:5);i++){const s=new THREE.Mesh(G.spike,plateMat);s.position.set((i-2)*0.3,1.5,0.05-Math.abs(i-2)*0.15);s.rotation.x=-0.4;inner.add(s)}}
   if(type==='spucker'){const sac=new THREE.Mesh(G.body,sacMat);sac.scale.set(.55,.5,.6);sac.position.set(0,1.3,-.7);inner.add(sac)}
-  return {g,mat,legs,inner};
+  let wings=null,aura=null;
+  if(T.fly){wings=[];[-1,1].forEach(sd=>{const w=new THREE.Group();w.position.set(sd*.25,1.15,.2);const m=new THREE.Mesh(wingGeo,wingMat);m.position.x=sd*.95;w.add(m);inner.add(w);wings.push({w,sd})})}
+  if(T.healer){const sac=new THREE.Mesh(G.body,healMat);sac.scale.set(.6,.55,.7);sac.position.set(0,1.35,-.75);inner.add(sac);
+    aura=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0x7cff9a,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));aura.scale.set(3,3,1);aura.position.set(0,1.4,-.75);inner.add(aura)}
+  if(T.burrow)[-1,1].forEach(sd=>{const c=new THREE.Mesh(G.spike,legMat);c.scale.set(1.3,1.6,1.3);c.position.set(sd*.42,.55,1.5);c.rotation.set(1.4,0,sd*.3);inner.add(c)});
+  return {g,mat,legs,inner,wings,aura};
 }
 // Laufbewegung: Beine schwingen vor und zurück und heben sich dabei an
 function animLegs(e){for(const l of e.legs){if(l.hip==null)continue;const a=e.step+l.ph;l.p.rotation.y=l.yaw+Math.sin(a)*.34;l.hip.rotation.z=l.hz-l.sd*Math.max(0,Math.cos(a))*.3}}

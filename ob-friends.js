@@ -11,8 +11,8 @@ const FR={peer:null,ready:false,conns:{},list:[],inv:null,err:'',fc:''};
 const fcGen=()=>{const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c='';for(let i=0;i<6;i++)c+=A[Math.random()*A.length|0];return c};
 const fcOk=c=>/^[A-Z0-9]{6}$/.test(c);
 FR.fc=ls.get(FC_KEY);if(!FR.fc||!fcOk(FR.fc)){FR.fc=fcGen();ls.set(FC_KEY,FR.fc)}
-try{FR.list=(JSON.parse(ls.get(FL_KEY)||'[]')||[]).filter(f=>f&&fcOk(f.fc)&&f.fc!==FR.fc).map(f=>({fc:f.fc,name:cleanName(f.name||'Freund'),last:+f.last||0,st:null,seen:0}))}catch(e){FR.list=[]}
-const frSave=()=>ls.set(FL_KEY,JSON.stringify(FR.list.map(f=>({fc:f.fc,name:f.name,last:f.last}))));
+try{FR.list=(JSON.parse(ls.get(FL_KEY)||'[]')||[]).filter(f=>f&&fcOk(f.fc)&&f.fc!==FR.fc).map(f=>({fc:f.fc,name:cleanName(f.name||'Freund'),last:+f.last||0,st:null,seen:0,lb:f.lb||null,dy:f.dy||null}))}catch(e){FR.list=[]}
+const frSave=()=>ls.set(FL_KEY,JSON.stringify(FR.list.map(f=>({fc:f.fc,name:f.name,last:f.last,lb:f.lb||null,dy:f.dy||null}))));
 const frFind=fc=>FR.list.find(f=>f.fc===fc);
 const frName=()=>ls.get(NAME_KEY)||'';
 const frOnline=f=>{const c=FR.conns[f.fc];return !!(c&&c.open&&performance.now()-f.seen<25000)};
@@ -23,8 +23,13 @@ function myStatus(){
   if(MP&&phase==='menu'){o.s='lobby';o.full=!!MP.partnerPeer;o.open=MP.role==='host'&&!!MP.open&&!MP.partnerPeer;if(o.open)o.room=MP.code;o.mode=MP.mode||'c'}
   else if(run&&phase!=='menu'){o.s=run.tut?'tut':MP?(MP.vs?'vs':'coop'):'solo';o.w=run.wave;o.map=MAP?MAP.name:'';if(MP)o.with=MP.partnerName||''}
   else o.s='menu';
+  if(specHook)o.s='watch';
+  o.spec=!!(run&&phase!=='menu'&&!run.tut&&!specHook&&(!MP||(MP.role==='host'&&!MP.spec)));
+  o.lb=myLb();const db=typeof dailyBest==='function'?dailyBest():null;if(db)o.dy={d:db.key,w:db.w,k:db.k};
   return o;
 }
+function myLb(){return{bw:M.bestAll||0,k:M.stats?M.stats.kills:0,vb:M.stats?M.stats.vsB:0,vs:M.stats?M.stats.vsS:0,rb:M.rebirths||0}}
+function frTakeSt(f,st){f.st=st||null;if(st&&st.lb)f.lb=st.lb;if(st&&st.dy)f.dy=st.dy}
 function statusText(f){
   if(!frOnline(f))return f.last?'Offline · zuletzt online '+ago(f.last):'Offline';
   const s=f.st||{};
@@ -34,6 +39,7 @@ function statusText(f){
     case'coop':return'Koop'+(s.with?' mit '+s.with:'')+' · Welle '+(s.w||1)+(s.map?' · '+s.map:'');
     case'vs':return'Schwarm gegen Brigade'+(s.with?' mit '+s.with:'')+' · Welle '+(s.w||1);
     case'tut':return'Im Tutorial';
+    case'watch':return'Schaut einem Freund zu';
     default:return'Online · im Menü';
   }
 }
@@ -71,12 +77,17 @@ function frData(c,d){
     // Doppelte Verbindung: die vom kleineren Code aufgebaute bleibt bestehen
     const old=FR.conns[fc];
     if(old&&old!==c&&old.open){const keepOld=(old.out?FR.fc:fc)<(c.out?FR.fc:fc);if(keepOld){try{c.close()}catch(e){}return}try{old.close()}catch(e){}}
-    FR.conns[fc]=c;f.pending=false;f.name=cleanName(d.n)||f.name;f.st=d.st||null;f.seen=performance.now();f.last=Date.now();frSave();renderFriends();setTimeout(renderFriends,400);
+    FR.conns[fc]=c;f.pending=false;f.name=cleanName(d.n)||f.name;frTakeSt(f,d.st);f.seen=performance.now();f.last=Date.now();frSave();renderFriends();setTimeout(renderFriends,400);
     return;
   }
   const fc=c.peer.slice(FPRE.length),f=frFind(fc);if(!f)return;
   f.seen=performance.now();f.last=Date.now();
-  if(d.t==='st'){f.st=d.st||null;if(d.n)f.name=cleanName(d.n)}
+  if(d.t==='st'){frTakeSt(f,d.st);if(d.n)f.name=cleanName(d.n)}
+  else if(d.t==='watch'){const st=myStatus();if(st.spec){FR.watchers.add(fc);frSend(fc,{t:'watchok'});toast(f.name+' schaut dir jetzt zu')}else frSend(fc,{t:'watchno'})}
+  else if(d.t==='unwatch'){FR.watchers.delete(fc)}
+  else if(d.t==='watchok'){if(SPEC&&SPEC.fc===fc&&!SPEC.on)beginSpectate()}
+  else if(d.t==='watchno'){if(SPEC&&SPEC.fc===fc&&!SPEC.on){SPEC=null;toast(f.name+' kann gerade nicht zugeschaut werden')}}
+  else if(d.t==='snap'){if(SPEC&&SPEC.fc===fc&&SPEC.on&&d.s){SPEC.last=d.s;SPEC.at=performance.now()}}
   else if(d.t==='inv'&&typeof d.room==='string'&&/^[A-Z0-9]{4}$/.test(d.room)){FR.inv={fc,name:f.name,room:d.room,mode:d.mode==='v'?'v':'c',t:Date.now()};showInvite();SFX.levelUp()}
   else if(d.t==='bye'){try{c.close()}catch(e){}}
   renderFriends();
@@ -101,7 +112,7 @@ function frSend(fc,msg){const c=FR.conns[fc];if(c&&c.open){try{c.send(msg);retur
 function openFriends(){
   $('frMyCode').textContent=FR.fc;$('frMsg').textContent='';
   $('frNameRow').hidden=!!frName();if(!frName())$('frNameIn').value='';
-  renderFriends();showOv('ovFriends');
+  showOv('ovFriends');renderFriends();setFrTab(frTab);
 }
 function frRow(f,lobby){
   const on=frOnline(f),st=f.st||{},li=el('li','');
@@ -110,6 +121,7 @@ function frRow(f,lobby){
   const canInvite=on&&MP&&MP.role==='host'&&phase==='menu'&&!MP.partnerPeer;
   if(canInvite){const b=el('button','btn sm','Einladen');b.onclick=()=>{if(frSend(f.fc,{t:'inv',room:MP.code,mode:MP.mode||'c'})){toast('Einladung an '+f.name+' geschickt');b.disabled=true;b.textContent='Eingeladen'}};li.appendChild(b)}
   else if(on&&st.s==='lobby'&&st.open&&st.room&&!(MP&&MP.code===st.room)){const b=el('button','btn sm','Beitreten');b.onclick=()=>frJoin(st.room);li.appendChild(b)}
+  else if(on&&st.spec&&!lobby&&!MP&&!run){const b=el('button','btn ghost sm','Zuschauen');b.onclick=()=>requestSpectate(f);li.appendChild(b)}
   if(!lobby){const x=el('button','x','×');x.title='Entfernen';x.setAttribute('aria-label',f.name+' entfernen');
     x.onclick=()=>{if(x.dataset.arm){FR.list=FR.list.filter(q=>q!==f);frSend(f.fc,{t:'bye'});const c=FR.conns[f.fc];if(c)try{c.close()}catch(e){}delete FR.conns[f.fc];frSave();renderFriends()}else{x.dataset.arm='1';x.textContent='Entfernen?';x.style.fontSize='12px'}};li.appendChild(x)}
   return li;
@@ -122,6 +134,7 @@ function renderFriends(){
     if(FR.err)$('frInfo').textContent=FR.err;else $('frInfo').textContent='Gib deinem Freund deinen Code. Fügt einer den anderen hinzu, steht ihr automatisch beide in der Liste.';
     if(!FR.list.length)L.appendChild(el('li','empty','Noch keine Freunde. Füge jemanden mit seinem Freundescode hinzu.'));
     sortedFriends().forEach(f=>L.appendChild(frRow(f,false)));
+    if(frTab==='rank')renderRank();
   }
   if(MP&&!$('ovMP').hidden&&!$('mpLobby').hidden)renderLobbyFriends();
 }
@@ -164,6 +177,87 @@ $('frAddBtn').onclick=()=>{
 };
 $('mpCodeToggle').onclick=()=>{$('mpCodeRow').hidden=!$('mpCodeRow').hidden};
 $('mpOpen').onchange=()=>{if(MP&&MP.role==='host'){MP.open=$('mpOpen').checked;frBroadcast(true)}};
+
+/* ---------- Rangliste unter Freunden ---------- */
+let frTab='list',lbCat='bw';
+const LB_CATS=[['bw','Beste Welle'],['k','Abschüsse'],['vb','Siege als Brigade'],['vs','Siege als Schwarm'],['rb','Wiedergeburten'],['dy','Heute']];
+function renderRank(){
+  const L=$('frRank');L.innerHTML='';const C=$('lbCats');C.innerHTML='';
+  LB_CATS.forEach(([k,n])=>{const b=el('button',lbCat===k?'on':'',n);b.onclick=()=>{lbCat=k;renderRank()};C.appendChild(b)});
+  const today=todayKey(),me={n:'Du',me:true,lb:myLb(),dy:dailyBest()?{d:today,w:dailyBest().w,k:dailyBest().k}:null};
+  const rows=[me].concat(FR.list.map(f=>({n:f.name,lb:f.lb,dy:f.dy})));
+  const val=r=>lbCat==='dy'?(r.dy&&r.dy.d===today?r.dy.w:-1):(r.lb?r.lb[lbCat]||0:-1);
+  rows.sort((a,b)=>val(b)-val(a));
+  rows.forEach((r,i)=>{const v=val(r),li=el('li',r.me?'me':'',`<span class="rk">${v<0?'–':i+1+'.'}</span><b></b><span>${v<0?(lbCat==='dy'?'heute noch nicht gespielt':'noch keine Daten'):(lbCat==='bw'||lbCat==='dy'?'Welle ':'')+fmt(v)}</span>`);li.querySelector('b').textContent=r.n;L.appendChild(li)});
+}
+function setFrTab(t){frTab=t;$('frTabList').classList.toggle('on',t==='list');$('frTabRank').classList.toggle('on',t==='rank');$('frListBox').hidden=t!=='list';$('frRankBox').hidden=t!=='rank';if(t==='rank')renderRank()}
+$('frTabList').onclick=()=>setFrTab('list');$('frTabRank').onclick=()=>setFrTab('rank');
+
+/* ---------- Zuschauen ---------- */
+FR.watchers=new Set();
+let SPEC=null,specMP=null;
+const SOLOFX={fx:[],fxSeq:0};
+specFx=(x,z,r,col)=>{if(!FR.watchers.size)return;SOLOFX.fx.push(++SOLOFX.fxSeq,r1(x),r1(z),r1(r),col|0);if(SOLOFX.fx.length>40)SOLOFX.fx.splice(0,SOLOFX.fx.length-40)};
+function specSnapNow(){
+  if(MP&&MP.role==='host'&&!MP.spec)return hostSnap();
+  if(MP||!run)return null;
+  const stub={name:frName()||'Spieler',role:'host',runId:1,fx:SOLOFX.fx,fxSeq:SOLOFX.fxSeq,ab:{},mk:null,buys:[],again:0,peT:0,peAt:0,vs:false,swarmSide:'g',qc:null,vsRes:''};
+  MP=stub;try{return hostSnap()}catch(e){return null}finally{MP=null}
+}
+setInterval(()=>{
+  if(!FR.watchers.size)return;
+  const st=myStatus();if(!st.spec)return;const s=specSnapNow();if(!s)return;
+  for(const fc of FR.watchers){if(!frSend(fc,{t:'snap',s}))FR.watchers.delete(fc)}
+},125);
+function requestSpectate(f){if(SPEC)return;SPEC={fc:f.fc,name:f.name,on:false};frSend(f.fc,{t:'watch'});toast('Verbinde mit '+f.name+' …');setTimeout(()=>{if(SPEC&&!SPEC.on){SPEC=null;toast(f.name+' antwortet nicht')}},6000)}
+function beginSpectate(){
+  SPEC.on=true;SPEC.at=performance.now();SPEC.last=null;
+  clearAll();run=newRun(1,false);phase='spec';halted=false;
+  MP={role:'guest',spec:true,code:'',rm:null,name:frName(),partnerPeer:'spec',partnerName:SPEC.name,P:null,lastSeen:0,runId:1,dmg:{},ab:{},fx:[],fxSeq:0,fxSeen:0,applied:{},
+    peerOrder:'auto',peerAbSeen:null,hostMax:100,ebSeen:null,ready:0,pl:[],plSeq:0,plSeen:0,rq:[],rqSeq:0,rqSeen:0,fxSeenP:0,pup:{c:null,d:null,z:[]},peerMarOrder:'auto',
+    repR:new Map(),repMa:new Map(),sup:null,wantStart:false,pubT:0,rfT:0,repE:new Map(),repS:new Map(),repT:new Map(),repP:new Map(),repM:new Map(),repH:new Map(),fxAdd(){}};
+  ship.visible=false;ship2.position.set(2,SHIP_POS.y,SHIP_POS.z);ship2.rotation.copy(ship.rotation);ship2.scale.copy(ship.scale);ship2.visible=true;
+  label2.visible=true;label2.userData.set(SPEC.name,'#5fd0ff');
+  showOv(null);$('specName').textContent=SPEC.name;$('specBar').hidden=false;$('app').classList.add('inrun');
+  specHook=specTick;frBroadcast(true);
+}
+function specTick(dt,t){
+  if(!SPEC||!SPEC.on)return;
+  if(performance.now()-SPEC.at>6000){endSpectate(SPEC.name+' spielt gerade nicht mehr');return}
+  const P=SPEC.last;if(!P)return;
+  run.wave=num(P.wv,1,1e6,1);run.hp=num(P.hp,0,1e7);MP.hostMax=num(P.mx,1,1e7,100);FIELD_K=num(P.fk,100,300,100)/100;
+  if(typeof P.mi==='number'&&P.mi!==mapIdx){setMap(P.mi);env.snow=!!MAP.snow}
+  if(Array.isArray(P.env)){env.t=num(P.env[0],0,1000)/1000;env.rainT=num(P.env[1],0,100)/100;env.fogT=num(P.env[2],0,100)/100}
+  if(typeof P.sh==='string')setShipModel(ship2,P.sh);
+  if(P!==SPEC.applied){SPEC.applied=P;MP.P=P;applySnap(P);MP.pup.d=P.cm||null;applyZombiePuppets(P.zo,dt)}
+  updateOnScreen();remoteFire(P,ship2,ship2Tip,dt);mpGuestUpdate(dt,t);puppetTick(dt,t);
+  showCombo(Math.round(num(P.cc,0,1e6)),num(P.cb,1,5,1));
+  $('specInfo').textContent='Welle '+run.wave+' · '+({f:'Kampf',s:'Upgrade-Menü',o:'Run beendet'}[P.ph]||'');
+  $('boss').hidden=!bossE;if(bossE){$('bossName').textContent=bossE.T.name;$('bossBar').style.width=Math.max(0,bossE.hp/bossE.max*100)+'%'}
+}
+function endSpectate(msg){
+  const s=SPEC;SPEC=null;specHook=null;if(s)frSend(s.fc,{t:'unwatch'});
+  $('specBar').hidden=true;label2.visible=false;ship.visible=true;toMenu();if(msg)toast(msg);frBroadcast(true);
+}
+$('specEnd').onclick=()=>endSpectate();
+
+/* ---------- Schnellnachrichten im Mehrspieler ---------- */
+const QC=['Hilfe!','Fokus hier!','Gut gemacht!','Warte kurz!','Los geht\'s!'];
+let qcLabels=null;
+function quickChat(i){
+  if(!MP||MP.spec||!run||phase==='menu')return;
+  MP.qc=[(MP.qc?MP.qc[0]:0)+1,i];showChat(0,i);$('qcMenu').hidden=true;
+  if(i===1&&mouse.p&&typeof tryMark==='function')tryMark(mouse.p);
+}
+function showChat(who,i){
+  const txt=QC[i];if(!txt)return;
+  if(!qcLabels){qcLabels=[makeLabel(),makeLabel()];qcLabels[0].position.set(0,10,0);qcLabels[1].position.set(0,10,0);ship.add(qcLabels[0]);ship2.add(qcLabels[1])}
+  const L=qcLabels[who];L.userData.set('„'+txt+'“',who?'#5fd0ff':'#ffd23f');L.visible=true;clearTimeout(L.userData.t);L.userData.t=setTimeout(()=>L.visible=false,3500);
+  if(who){toast((MP&&MP.partnerName||'Mitspieler')+': '+txt);SFX.mark(false)}else SFX.click();
+}
+$('qcBtn').onclick=()=>{const m=$('qcMenu');m.hidden=!m.hidden};
+QC.forEach((q,i)=>{const b=el('button','',q+(i<3?' <span class="kbd">'+[8,9,0][i]+'</span>':''));b.onclick=()=>quickChat(i);$('qcMenu').appendChild(b)});
+setInterval(()=>{$('qcBtn').hidden=!(MP&&!MP.spec&&run&&phase!=='menu');if($('qcBtn').hidden)$('qcMenu').hidden=true},500);
 
 $('bFriends').hidden=!window.Peer;
 if(window.Peer){

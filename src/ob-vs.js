@@ -42,6 +42,7 @@ function renderMode(){
 }
 $('mdSwap').onclick=()=>{if(!MP)return;if(MP.role==='host')MP.swarmSide=MP.swarmSide==='h'?'g':'h';else{MP.swapN=(MP.swapN||0)+1;MP.swarmSide=MP.swarmSide==='h'?'g':'h'}renderLobby()};
 $('mpShipBtn').onclick=()=>{if(!MP)return;openShipSelect(()=>{showOv('ovMP');renderLobby()},'Dieses Schiff nehmen')};
+function vsRecord(res){if(isSwarm()?res==='s':res==='b'){if(isSwarm())M.stats.vsS++;else M.stats.vsB++;saveMeta();achCheck()}}
 function vsTitle(res){const sw=isSwarm();return res==='s'?(sw?'Sieg! Der Generator ist gefallen':'Der Schwarm hat gewonnen'):(sw?'Niederlage: Die Brigade hat gehalten':'Die Brigade hat gewonnen!')}
 $('mdCoop').onclick=()=>{if(MP&&MP.role==='host'){MP.mode='c';renderLobby()}};
 $('mdVs').onclick=()=>{if(MP&&MP.role==='host'){MP.mode='v';renderLobby()}};
@@ -52,7 +53,7 @@ function vsHostInit(){MP.vsS={bio:60,ep:0,evo:{hp:0,sp:0,inc:0},rage:0,shell:0,c
 function vsStartWave(){const S=MP.vsS;if(!S)return;S.bio=Math.min(999,S.bio+40+run.wave*10);S.used={}}
 function vsWaveDone(){
   const S=MP.vsS;if(S)S.ep+=2;
-  if(run.wave>VS_WAVES){MP.vsRes='b';run.wave--;endRun(isSwarm(),vsTitle('b'));return true}
+  if(run.wave>VS_WAVES){MP.vsRes='b';run.wave--;vsRecord('b');endRun(isSwarm(),vsTitle('b'));return true}
   return false;
 }
 function vsSnap(){
