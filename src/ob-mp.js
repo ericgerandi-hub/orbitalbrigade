@@ -8,7 +8,7 @@
    Fähigkeiten über seine eigene Presence zurück.
    ========================================================= */
 const NAME_KEY='orbitalbrigade-name';
-const GAME_VER='2026-10-23d';
+const GAME_VER='2026-10-23e';
 const ET_KEYS=Object.keys(ET),ST_KEYS=['sentry','wall','minen','moerser','kaserne','ring','graeber'],SC_KEYS=['rifle','flamer','rpg','sniper'];
 const ANT_ST=['swarm','form','body','scatter','flood','dying','gone'],EV_KEYS=['meteor','supply','blackout','frenzy','gold'];
 $('bMP').hidden=!window.OB_NET;
@@ -79,7 +79,11 @@ function renderLobby(){
   const add=(n,tag)=>{const li=el('li','',`<b></b><span class="lbl">${tag}</span>`);li.querySelector('b').textContent=n;L.appendChild(li)};
   add(MP.name,MP.role==='host'?'Du · Host':'Du');
   if(MP.partnerPeer)add(MP.partnerName,(MP.role==='host'?'Mitspieler':'Host')+(MP.ping!=null?' · Ping '+Math.round(MP.ping)+' ms':''));
+  renderMode();
   const ctl=$('mpWaves');ctl.innerHTML='';
+  if(MP.role==='host'&&MP.mode==='v'){
+    $('mpWait').textContent=MP.partnerPeer?'Du bist die Brigade, '+MP.partnerName+' ist der Schwarm.':`Schick deinem Mitspieler den Code ${MP.code}. Er wählt im Menü „Mehrspieler“ und dann „Beitreten“.`;
+    const b=el('button','wv','<b>Kampf starten</b><span>Überlebe '+VS_WAVES+' Wellen</span>');b.disabled=!MP.partnerPeer;b.onclick=()=>mpStartHost(1);ctl.appendChild(b);return}
   if(MP.role==='host'){
     $('mpWait').textContent=MP.partnerPeer?'Wähle die Startwelle, um zu starten.':`Schick deinem Mitspieler den Code ${MP.code}. Er wählt im Menü „Mehrspieler“ und dann „Beitreten“.`;
     const opts=[1];for(let w=21;w<=M.best;w+=20)opts.push(w);
@@ -90,12 +94,18 @@ function renderLobby(){
 
 /* ---------- Start, Schiffe, Verlassen ---------- */
 function mpSetupShips(){
+  if(MP.vs){SHIP_POS.x=2;ship2.rotation.copy(ship.rotation);ship2.scale.copy(ship.scale);
+    if(MP.role==='host'){ship.position.x=2;ship.visible=true;ship2.visible=false;label1.visible=label2.visible=false}
+    else{ship.visible=false;ship2.position.set(2,SHIP_POS.y,SHIP_POS.z);ship2.visible=true;label1.visible=false;label2.visible=true;label2.userData.set(MP.partnerName||'Brigade','#5fd0ff')}
+    return}
+  ship.visible=true;
   const mine=MP.role==='host'?-12:14,other=MP.role==='host'?14:-12;
   SHIP_POS.x=mine;ship.position.x=mine;
   ship2.position.set(other,SHIP_POS.y,SHIP_POS.z);ship2.rotation.copy(ship.rotation);ship2.scale.copy(ship.scale);ship2.visible=true;
   label1.visible=label2.visible=true;label1.userData.set(MP.name,'#ffd23f');label2.userData.set(MP.partnerName||'Mitspieler','#5fd0ff');
 }
 function guestJoinRun(){
+  MP.vs=MP.P.md==='v';setEqual(!!MP.P.eq);
   MP.again=0;MP.runId=MP.P.id;MP.ebSeen=null;MP.fxSeen=Infinity;MP.ready=0;mpSetupShips();startRun(num(MP.P.st,1,1e6,1));MP.fxSeen=0;
   if(Array.isArray(MP.P.fx)&&MP.P.fx.length>=5)MP.fxSeen=MP.P.fx[MP.P.fx.length-5];
 }
@@ -115,13 +125,14 @@ function updOverMP(){
 $('bAgain').onclick=()=>{if(!MP||!run)return;MP.again=MP.runId;updOverMP()};
 function mpStartHost(w){
   if(!MP||!MP.partnerPeer||verMismatch())return;
-  MP.again=0;MP.wantStart=false;
+  MP.vs=MP.mode==='v';setEqual(!!MP.eq);if(MP.vs){w=1;vsHostInit()}
+  MP.again=0;MP.wantStart=false;MP.vsRes='';
   MP.runId=1+(rnd()*1e9|0);mpSetupShips();startRun(w);
 }
 function mpLeave(){
   if(!MP)return;
   try{MP.rm.leave()}catch(e){}
-  clearPuppets();MP=null;FS=FS0;$('hPing').hidden=true;
+  clearPuppets();vsCleanup();MP=null;FS=FS0;$('hPing').hidden=true;ship.visible=true;
   ship2.visible=false;label1.visible=label2.visible=false;SHIP_POS.x=2;ship.position.x=2;
 }
 function partnerLost(){
@@ -202,19 +213,20 @@ function hostSnap(){
   const sup=supply?[r1(supply.p.x),r1(supply.p.z),r1(supply.g.position.y)]:null;
   const o=Object.assign(myInputs(),{n:MP.name,r:'h',id:MP.runId,ph,wv:run.wave,st:run.start,hp:Math.ceil(run.hp),mx:Math.round(R('basis','maxhp')),
     eb:Math.round((run.earnBase||0)*10)/10,k:run.kills,env:[Math.round(env.t*1000),Math.round(env.rainT*100),Math.round(env.fogT*100)],
-    en,so,sr,pd,me,sh,rv,mr,sup,mi:mapIdx,bl:ITEMS.basis.stats.map(k=>runLv(run,'basis',k)),ev:run.ev?EV_KEYS.indexOf(run.ev.id):-1,bo:Math.ceil(run.blackout||0),fk:Math.round(FIELD_K*100)});
+    en,so,sr,pd,me,sh,rv,mr,sup,mi:mapIdx,md:MP.vs?'v':'c',eq:M.eq?1:0,res:MP.vsRes||'',vs:MP.vs?vsSnap():null,bl:ITEMS.basis.stats.map(k=>runLv(run,'basis',k)),ev:run.ev?EV_KEYS.indexOf(run.ev.id):-1,bo:Math.ceil(run.blackout||0),fk:Math.round(FIELD_K*100)});
   return o;
 }
 function hostApplyGuest(P,dt){
   if(P.id!==MP.runId)return;
-  remoteFire(P,ship2,ship2Tip,dt);
-  readAbilities(P);
+  if(!MP.vs){remoteFire(P,ship2,ship2Tip,dt);readAbilities(P)}
+  else vsHostApply(P);
   if(['attack','hold','retreat','auto'].includes(P.o))MP.peerOrder=P.o;
   if(['attack','hold','retreat','auto'].includes(P.om))MP.peerMechOrder=P.om;
   if(['attack','hold','retreat','auto'].includes(P.mo))MP.peerMarOrder=P.mo;
   if(Array.isArray(P.rq))for(const q of P.rq){if(!q||typeof q.i!=='number'||q.i<=MP.rqSeen)continue;MP.rqSeen=q.i;
     if(q.k==='rep'){const mx=R('basis','maxhp');run.hp=Math.min(mx,run.hp+mx*.25);for(const s of structs)if(s.hp>0&&s.max>1)s.hp=Math.min(s.max,s.hp+s.max*.5);blast(BASE.clone().setY(.3),0x7cf0a8,10,.8,true);domeHit=1}
     else if(q.k==='bu'&&ITEMS.basis.stats.includes(q.s)){const L=runLv(run,'basis',q.s);if(L<STAT[q.s].rMax){run.lv[lvKey('basis',q.s)]=L+1;afterUpgrade('basis',q.s,1);if(phase==='shop')renderRunShop()}}
+    else if(q.k==='sab'||q.k==='evo'){if(MP.vs)vsHostReq(q)}
     else if(q.k==='rally'){for(const u of soldiers.concat(mechs,marines))if(!u.dead&&(u.own||0)===1)u.hp=Math.min(u.max,u.hp+u.max*.4)}}
   applyFx(P.fx,'fxSeenP');
   if(P.mw&&typeof P.mw==='object'){const js=JSON.stringify(P.mw);if(js!==MP.mwSeen){MP.mwSeen=js;const pk=cleanMech(P.mw);for(const m of mechs)if(m.own===1)applyMechPack(m,pk)}}
@@ -268,12 +280,13 @@ function guestFollowHost(P,dt){
   run.blackout=bo;$('app').classList.toggle('blackout',bo>0);
   FIELD_K=num(P.fk,100,300,100)/100;
   const wv=num(P.wv,1,1e6,run.wave);
-  if(P.ph==='o'&&phase!=='over'){endRun(true);return}
+  if(P.ph==='o'&&phase!=='over'){if(MP.vs)endRun(false,P.res==='s'?'Sieg! Der Generator ist gefallen':'Niederlage: Die Brigade hat gehalten');else endRun(true);return}
+  if(MP.vs)vsGuestRead(P);
   if(P.ph==='s'&&phase==='fight'&&wv>run.wave){
     const bonus=(15+run.wave*4)*run.mult*R('allg','credits');
     run.credits+=bonus;run.medals+=(2+run.wave*.4)*run.mult*R('allg','medals');run.lastBonus=Math.round(bonus);
     laser.on=0;act.luft=act.barrage=null;hold=null;exitPlacing();bankMedals();
-    run.wave=wv;SFX.waveClear();openRunShop(false);
+    run.wave=wv;SFX.waveClear();if(MP.vs)vsOpenEvo();else openRunShop(false);
   }else if(P.ph==='f'&&phase==='shop'&&wv>=run.wave){
     run.wave=wv;phase='fight';halted=false;showOv(null);SFX.horn();
     const ev=EV_KEYS[P.ev];banner('WELLE '+run.wave+(ev?'<small>'+EVENTS[ev].name+': '+EVENTS[ev].sub+'</small>':''));if(ev)SFX.alarm();
@@ -455,7 +468,7 @@ function mpRequestPlace(id,p,st){
 function guestSnap(){
   const dm=[];
   for(const id in MP.dmg){if(!MP.repE.has(+id)){delete MP.dmg[id];continue}dm.push(+id,Math.round(MP.dmg[id]*10)/10)}
-  return Object.assign(myInputs(),{n:MP.name,r:'g',id:MP.runId,rd:MP.ready,dm:dm.slice(0,300),pl:MP.pl,rq:MP.rq,mw:M.unlocked.mech?mechPack():null});
+  return Object.assign(myInputs(),{sw:MP.sw||[],n:MP.name,r:'g',id:MP.runId,rd:MP.ready,dm:dm.slice(0,300),pl:MP.pl,rq:MP.rq,mw:M.unlocked.mech?mechPack():null});
 }
 
 /* ---------- Takt ---------- */
@@ -477,6 +490,7 @@ function mpTick(dt,t){
   if(run&&phase!=='menu'&&MP.P&&MP.P.id===MP.runId){
     const mk=MP.P.mk;if(Array.isArray(mk)&&mk[1]!==MP.mkSeen){MP.mkSeen=mk[1];const e=enemies.find(x=>x.id===mk[0]&&!x.dead);if(e){markEnemy(e,1);toast(MP.partnerName+' hat einen Gegner markiert')}}MP.pup.d=MP.P.cm||null;applyZombiePuppets(MP.P.zo,dt)}
   puppetTick(dt,t);
+  if(typeof vsTick==='function')vsTick(dt);
   if(verMismatch()&&!MP.verWarn&&phase!=='menu'){MP.verWarn=true;toast('Ihr habt unterschiedliche Spielversionen. Bitte beide die Seite neu laden.')}
   MP.pubT-=dt;const pub=MP.pubT<=0;if(pub)MP.pubT=1/15;
   if(phase==='over'&&run){
@@ -486,7 +500,7 @@ function mpTick(dt,t){
   }
   if(phase==='menu'){
     if(MP.role==='guest'&&MP.P&&(MP.P.ph==='f'||MP.P.ph==='s')&&MP.P.id&&MP.P.id!==MP.runId){guestJoinRun();return}
-    if(pub)MP.rm.presence({n:MP.name,r:MP.role==='host'?'h':'g',ph:'l',id:0,v:GAME_VER,pt:Math.round(performance.now()),pe:MP.peT||0,pd:MP.peAt?Math.round(performance.now()-MP.peAt):0}).catch(()=>{});
+    if(pub)MP.rm.presence({n:MP.name,r:MP.role==='host'?'h':'g',ph:'l',id:0,v:GAME_VER,md:MP.mode||'c',eq:MP.eq?1:0,pt:Math.round(performance.now()),pe:MP.peT||0,pd:MP.peAt?Math.round(performance.now()-MP.peAt):0}).catch(()=>{});
     return;
   }
   if(!run)return;

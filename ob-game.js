@@ -21,7 +21,8 @@ const R=(id,k)=>val(id,k,run);
 /* Mehrspieler (Logik in ob-mp.js) */
 let MP=null,enemySeq=0,structSeq=0;
 const FS0={get turrets(){return turrets},ship};let FS=FS0;
-const mpHp=()=>MP?1.75:1,mpCount=()=>MP?1.3:1;
+const mpHp=()=>MP&&!MP.vs?1.75:1,mpCount=()=>MP&&!MP.vs?1.3:1;
+const vsOn=()=>!!(MP&&MP.vs),isSwarm=()=>!!(MP&&MP.vs&&MP.role==='guest');
 const actR={luft:null,barrage:null},laser2={on:0,p:new THREE.Vector3()};
 const beam2=beam.clone(),laserHit2=laserHit.clone();beam2.visible=laserHit2.visible=false;scene.add(beam2,laserHit2);
 
@@ -40,7 +41,7 @@ function lerpAngle(a,b,k){let d=b-a;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.P
 function wait(t,fn){later.push({t,fn,cos:COSMETIC})}
 
 /* ---------- Oberfläche: Helfer ---------- */
-const OVERLAYS=['ovMP','ovDevice','ovMenu','ovRebirth','ovReset','ovKeys','ovStartSel','ovMeta','ovRun','ovLevel','ovPause','ovOver'];
+const OVERLAYS=['ovEvo','ovMP','ovDevice','ovMenu','ovRebirth','ovReset','ovKeys','ovStartSel','ovMeta','ovRun','ovLevel','ovPause','ovOver'];
 function showOv(id){OVERLAYS.forEach(o=>$(o).hidden=o!==id)}
 let toastT=0;
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600)}
@@ -102,6 +103,7 @@ $('dMobile').classList.toggle('sug',!detectedPC);$('sugMobile').hidden=detectedP
    Gegner
    ========================================================= */
 function buildWave(w){
+  if(vsOn())return [];
   const bossW=w%5===0;
   const q=[];let t=.8;const n=Math.min(Math.round((8+Math.floor(w*2.8))*mpCount()*(bossW?1.45:1)),MP?170:130);const gap=Math.max(.13,1-w*.03)*(bossW?.8:1);
   const pz=Math.min(.1+w*.008,.26);
@@ -140,6 +142,7 @@ function hit(e,d,silent){
   if(e.dead||COSMETIC)return;
   if(e.frozen>0)d*=1.25;
   if(run){d*=run.dmgMul*(cmdBuffT>0?1.3:1);if(run.crit&&rnd()<run.crit)d*=2}
+  if(vsOn()&&MP.vsS&&MP.vsS.shell>0)d*=.7;
   if(MP&&MP.role==='guest'&&e.id)MP.dmg[e.id]=(MP.dmg[e.id]||0)+d;
   e.hp-=d;if(!silent)e.fl=.08;
   if(e.hp<=0)kill(e);
@@ -236,7 +239,7 @@ function rangedAttack(e,dt){
 /* ---------- Brutlöcher: entstehen auf großen Feldern, spawnen Gegner, solange die Welle läuft ---------- */
 function nestTick(e,dt){
   const s=1+Math.sin(waveT*3+e.ph)*.15;e.glow.scale.set(6*s,6*s,1);
-  if(phase!=='fight'||!queue.length)return;
+  if(phase!=='fight'||!(vsOn()?waveT<vsWaveLen(run.wave):queue.length))return;
   e.spawnT=(e.spawnT??(1+rnd()*2))-dt;
   if(e.spawnT>0||enemies.length>=(MP?100:80))return;
   e.spawnT=Math.max(2.2,6-run.wave*.04)*(.8+rnd()*.4);
@@ -274,7 +277,7 @@ function updateEnemies(dt){
     if(e.slowT>0)e.slowT-=dt;
     if(still)continue;
     if(e.T.gold){goldTick(e,dt);continue}
-    const esp=e.sp*(e.slowT>0?.45:1);
+    const esp=e.sp*(e.slowT>0?.45:1)*(vsOn()&&MP.vsS&&MP.vsS.rage>0?1.4:1);
     tmp.set(BASE.x-p.x,0,BASE.z-p.z);const dist=tmp.length();tmp.normalize();
     let blk=null;
     for(const c of cols){if(Math.hypot(c.x-p.x,c.z-p.z)<c.r+e.r*.9){blk=c;break}}
@@ -1535,7 +1538,7 @@ function startRun(start,tut=false){
   if(!tut){M.runs++;saveMeta()}
   env.t=.16;env.rainT=env.fogT=0;
   $('side').hidden=$('abilBar').hidden=false;$('app').classList.add('inrun');
-  if(!tut)spawnCommander();
+  if(!tut&&!isSwarm())spawnCommander();
   buildSlots();updHud();
   if(tut){phase='tut';halted=false;showOv(null);startTutorial();return}
   if(MP&&MP.role==='guest'){if(start>1)openRunShop(true);else{phase='fight';showOv(null)}}
@@ -1544,8 +1547,8 @@ function startRun(start,tut=false){
 function startWave(){
   queue=buildWave(run.wave);waveT=0;phase='fight';halted=false;showOv(null);
   M.best=Math.max(M.best,run.wave);M.bestAll=Math.max(M.bestAll,M.best);saveMeta();
-  rebuildRing();ensureNests();
-  run.ev=pickEvent(run.wave);run.blackout=0;$('app').classList.remove('blackout');
+  rebuildRing();if(!vsOn())ensureNests();else vsStartWave();
+  run.ev=vsOn()?null:pickEvent(run.wave);run.blackout=0;$('app').classList.remove('blackout');
   const wr=rnd();env.rainT=0;env.fogT=0;let wtxt='';
   if(run.wave>=3&&wr<.22){env.rainT=.5+rnd()*.5;wtxt=MAP.rainName}
   else if(run.wave>=3&&wr<.34){env.fogT=.6+rnd()*.4;wtxt='Nebel zieht auf'}
@@ -1564,11 +1567,13 @@ function waveDone(){
   laser.on=0;act.luft=act.barrage=null;hold=null;exitPlacing();
   endGuided();run.ev=null;if(run.blackout>0){run.blackout=0;$('app').classList.remove('blackout')}
   bankMedals();run.wave++;SFX.waveClear();
+  if(vsOn()&&vsWaveDone())return;
   openRunShop(false);
 }
 function endRun(died,title){
   if(!run||phase==='over')return;
   bankMedals();M.best=Math.max(M.best,run.wave);M.bestAll=Math.max(M.bestAll,M.best);saveMeta();
+  if(vsOn()&&MP.role==='host'&&died&&!title){title='Der Schwarm hat gewonnen';MP.vsRes='s'}
   phase='over';halted=false;hold=null;exitPlacing();endGuided();if(died)SFX.gameOver();
   $('overTitle').textContent=title||(died?'Schildgenerator zerstört':'Run beendet');
   const sum=$('overSum');sum.innerHTML='';
@@ -1974,6 +1979,7 @@ function groundAt(ev){
 cv.addEventListener('contextmenu',ev=>ev.preventDefault());
 cv.addEventListener('mousedown',ev=>{if(ev.button===1)ev.preventDefault()});
 cv.addEventListener('pointerdown',ev=>{
+  if(isSwarm()&&run&&play()){vsPointer(ev);return}
   if(ev.button===1&&run&&play()&&!halted&&!guided){ev.preventDefault();const p=groundAt(ev);if(p)tryMark(p);return}
   if(guided&&run&&play()&&!halted){if(ev.button===2){detonateGuided();return}setSteer(ev);steer.boost=ev.pointerType==='mouse';try{cv.setPointerCapture(ev.pointerId)}catch(e){}return}
   if(!run||!play()||halted)return;const p=groundAt(ev);if(!p)return;
@@ -2020,6 +2026,7 @@ addEventListener('keydown',e=>{
     return;
   }
   if(!run||!play()||halted||e.repeat||e.ctrlKey||e.metaKey||e.altKey)return;
+  if(isSwarm()){vsKey(e,k);return}
   if(/^[1-7]$/.test(k)){const id=run.weapons[+k-1];if(id)selWeapon(id);return}
   if(k==='o'){$('ordToggle').click();return}
   if(k===' '){e.preventDefault();requestAmmo();return}
@@ -2093,7 +2100,7 @@ function update(dt,t){
     if(hold&&canFire(run.sel))fireWeapon(run.sel,hold.clone());
     else if(hold&&run.sel==='kanone'&&!run.tut&&run.ammo<1)ammoEmptyHint();
     // Langsames Auto-Feuer: jede Waffe schießt für sich, außer die gerade von Hand gefeuerte
-    if(!run.tut){const f=markedTarget()||frontEnemy();run.auto=run.auto||{};
+    if(!run.tut&&!isSwarm()){const f=markedTarget()||frontEnemy();run.auto=run.auto||{};
       for(const id of run.weapons){
         if(hold&&id===run.sel)continue;
         run.auto[id]=(run.auto[id]||0)-dt;
@@ -2101,7 +2108,7 @@ function update(dt,t){
       }}
   }
   updateAbilities(dt,t);
-  autoAbilities(dt);
+  if(!isSwarm())autoAbilities(dt);
   updateShots(dt);
   updateZones(dt);
   if(MP&&MP.role==='guest'){mpGuestUpdate(dt,t);updateZombies(dt);updateCommander(dt,t)}
@@ -2125,8 +2132,8 @@ function update(dt,t){
   $('boss').hidden=!bossE;
   if(bossE){$('bossName').textContent=bossE.T.name;$('bossBar').style.width=Math.max(0,bossE.hp/bossE.max*100)+'%'}
   if(phase==='fight'){
-    if(run.pending>0&&!halted&&$('ovLevel').hidden&&!guided){showLevelUp();if(!MP)return}
-    if(!(MP&&MP.role==='guest')&&!queue.length&&!enemies.some(e=>!e.T.nest))waveDone();
+    if(run.pending>0&&!halted&&$('ovLevel').hidden&&!guided&&!isSwarm()){showLevelUp();if(!MP)return}
+    if(!(MP&&MP.role==='guest')&&!queue.length&&!enemies.some(e=>!e.T.nest)&&!(vsOn()&&waveT<vsWaveLen(run.wave)))waveDone();
   }else if(phase==='tut')tutCheck();
 }
 let last=performance.now(),paused=false,uiT=0,timeScale=1,slowT=0,slowK=0;
@@ -2148,7 +2155,7 @@ function loop(now){
   const want=MP?1:run&&play()&&!halted&&(run.placing||slowT>0)?.3:guided&&play()&&!halted?.55:1;
   timeScale+=(want-timeScale)*Math.min(1,dt*10);if(Math.abs(want-timeScale)<.01)timeScale=want;
   const k=Math.round((1-timeScale)/.7*10)/10;if(k!==slowK){slowK=k;SFX.slowmo(k);cv.classList.toggle('slow',k>.3)}
-  realDt=dt;if(!paused)update(dt*timeScale,now/1000);
+  realDt=dt;if(!paused){try{update(dt*timeScale,now/1000)}catch(err){if(!loop.errT||now-loop.errT>5000){loop.errT=now;console.error(err)}}}
   renderer.render(scene,camera);
   uiT+=dt;if(uiT>.1){uiT=0;musicTick();if(run){updHud();updSlots()}}
   requestAnimationFrame(loop);

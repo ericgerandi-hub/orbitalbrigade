@@ -226,11 +226,16 @@ const unlockRefund=sanitizeUnlocks();
 function fullReset(){M=freshMeta();M.rkFix=1;saveMeta();ls.set('orbitalbrigade-autoab','{}')}
 // Testphase der Lenkrakete beenden: einmalig wieder sperren
 if(!M.rkFix){delete M.unlocked.rakete;M.rkFix=1}
-function saveMeta(){ls.set(META_KEY,JSON.stringify(M))}
+function saveMeta(){let o=M;if(M.eq){o=Object.assign({},M);o.unlocked=M._real;o.cmdSel=M._realSel;delete o.eq;delete o._real;delete o._realSel}ls.set(META_KEY,JSON.stringify(o))}
+/* Gleiche Bedingungen: Standard-Ausrüstung ohne Menü-Upgrades, Wiedergeburt-Boni und Kommandant */
+function setEqual(on){
+  if(on&&!M.eq){M._real=M.unlocked;M._realSel=M.cmdSel;const u={};for(const id of Object.keys(ITEMS)){const it=ITEMS[id];if(['weapon','ability','support'].includes(it.kind)&&(it.rb||0)<=1)u[id]=1}M.unlocked=u;M.cmdSel=null;M.eq=true}
+  else if(!on&&M.eq){M.unlocked=M._real;M.cmdSel=M._realSel;delete M._real;delete M._realSel;delete M.eq}
+}
 
 /* ---- Werte berechnen ---- */
 const lvKey=(id,k)=>id+'.'+k;
-function metaLv(id,k){return M.lv[lvKey(id,k)]||0}
+function metaLv(id,k){return M.eq?0:(M.lv[lvKey(id,k)]||0)}
 function runLv(run,id,k){return run?(run.lv[lvKey(id,k)]||0):0}
 function statAt(id,k,L){
   const st=STAT[k],b=ITEMS[id].base[k]??0;
@@ -261,8 +266,8 @@ function metaCost(id,k){return Math.round(STAT[k].mc*Math.pow(1.6,metaLv(id,k)))
 /* ---- Wiedergeburt und Verzauberungen ---- */
 M.bestAll=Math.max(M.bestAll||0,M.best||0);
 const enchLv=(c,k)=>M.ench[c+'.'+k]||0;
-function enchSum(type){const c=M.cmdSel;if(!c||!M.cmdOwned[c])return 0;return (ENCH[c]||[]).filter(e=>e.k===type).reduce((a,e)=>a+e.per*enchLv(c,e.k),0)}
-const rebirthDmg=()=>1+.25*M.rebirths, rebirthMoney=()=>1+.2*M.rebirths;
+function enchSum(type){if(M.eq)return 0;const c=M.cmdSel;if(!c||!M.cmdOwned[c])return 0;return (ENCH[c]||[]).filter(e=>e.k===type).reduce((a,e)=>a+e.per*enchLv(c,e.k),0)}
+const rebirthDmg=()=>M.eq?1:1+.25*M.rebirths, rebirthMoney=()=>M.eq?1:1+.2*M.rebirths;
 function doRebirth(){
   const gain=rebirthStars(M.best),keep={};
   for(const k in M.lv)if(k.startsWith('cmd_'))keep[k]=M.lv[k];
