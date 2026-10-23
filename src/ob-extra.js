@@ -205,8 +205,14 @@ function dailyEnd(){
 }
 $('bDaily').onclick=openDaily;$('dyGo').onclick=startDaily;$('dyBack').onclick=()=>{renderMenu();showOv('ovMenu')};
 
-/* Persönlicher Geschenk-Link: schaltet die Ameisenlegion nur in diesem Browser frei */
-(function(){try{const q=new URLSearchParams(location.search);
-  if(q.get('geschenk')==='ameisen-eric-7q2k'){M.cmdOwned=M.cmdOwned||{};M.cmdOwned.cmd_ameise=1;saveMeta();
-    history.replaceState(null,'',location.pathname+location.hash);setTimeout(()=>{toast('Ameisenlegion freigeschaltet');if(typeof renderMenu==='function'&&phase==='menu')renderMenu()},900)}
+/* Persönlicher Geschenk-Link: schaltet die Ameisenlegion nur in diesem Browser frei.
+   Der Browser merkt sich das Geschenk und wendet es bei jedem Laden erneut an. */
+(function(){try{
+  const q=new URLSearchParams(location.search),fresh=q.get('geschenk')==='ameisen-eric-7q2k';
+  if(fresh)ls.set('orbitalbrigade-gift','ameise');
+  if(ls.get('orbitalbrigade-gift')!=='ameise')return;
+  M.cmdOwned=M.cmdOwned||{};
+  const neu=!M.cmdOwned.cmd_ameise;M.cmdOwned.cmd_ameise=1;if(fresh||!M.cmdSel)M.cmdSel='cmd_ameise';
+  if(neu||fresh)saveMeta();
+  if(fresh){history.replaceState(null,'',location.pathname+location.hash);setTimeout(()=>{toast('Ameisenlegion freigeschaltet und ausgewählt');try{renderMenu()}catch(e){}},900)}
 }catch(e){}})();
