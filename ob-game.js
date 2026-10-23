@@ -41,7 +41,7 @@ function lerpAngle(a,b,k){let d=b-a;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.P
 function wait(t,fn){later.push({t,fn,cos:COSMETIC})}
 
 /* ---------- Oberfläche: Helfer ---------- */
-const OVERLAYS=['ovShip','ovEvo','ovMP','ovDevice','ovMenu','ovRebirth','ovReset','ovKeys','ovStartSel','ovMeta','ovRun','ovLevel','ovPause','ovOver'];
+const OVERLAYS=['ovFriends','ovShip','ovEvo','ovMP','ovDevice','ovMenu','ovRebirth','ovReset','ovKeys','ovStartSel','ovMeta','ovRun','ovLevel','ovPause','ovOver'];
 function showOv(id){OVERLAYS.forEach(o=>$(o).hidden=o!==id)}
 let toastT=0;
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600)}

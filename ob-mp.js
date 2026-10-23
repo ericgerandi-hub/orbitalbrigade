@@ -8,7 +8,7 @@
    Fähigkeiten über seine eigene Presence zurück.
    ========================================================= */
 const NAME_KEY='orbitalbrigade-name';
-const GAME_VER='2026-10-23f';
+const GAME_VER='2026-10-23g';
 const ET_KEYS=Object.keys(ET),ST_KEYS=['sentry','wall','minen','moerser','kaserne','ring','graeber'],SC_KEYS=['rifle','flamer','rpg','sniper'];
 const ANT_ST=['swarm','form','body','scatter','flood','dying','gone'],EV_KEYS=['meteor','supply','blackout','frenzy','gold'];
 $('bMP').hidden=!window.OB_NET;
@@ -74,6 +74,7 @@ $('mpJoin').onclick=()=>{const c=$('mpCodeIn').value.trim().toUpperCase();if(c.l
 function verMismatch(){return MP&&MP.P&&MP.P.v&&MP.P.v!==GAME_VER}
 function renderLobby(){
   if(!MP)return;
+  if(typeof renderLobbyFriends==='function')renderLobbyFriends();
   if(verMismatch()){$('mpPlayers').innerHTML='';$('mpWaves').innerHTML='';$('mpWait').textContent=(MP.P.v>GAME_VER?'Dein Mitspieler hat eine neuere Version. Lade die Seite neu (am PC Strg+F5).':'Dein Mitspieler hat eine ältere Version. Er soll die Seite neu laden (am PC Strg+F5).');return}
   const L=$('mpPlayers');L.innerHTML='';
   const add=(n,tag)=>{const li=el('li','',`<b></b><span class="lbl">${tag}</span>`);li.querySelector('b').textContent=n;L.appendChild(li)};
@@ -82,10 +83,10 @@ function renderLobby(){
   renderMode();
   const ctl=$('mpWaves');ctl.innerHTML='';
   if(MP.role==='host'&&MP.mode==='v'){
-    $('mpWait').textContent=MP.partnerPeer?(MP.swarmSide==='h'?'Du bist der Schwarm, '+MP.partnerName+' ist die Brigade.':'Du bist die Brigade, '+MP.partnerName+' ist der Schwarm.'):`Schick deinem Mitspieler den Code ${MP.code}. Er wählt im Menü „Mehrspieler“ und dann „Beitreten“.`;
+    $('mpWait').textContent=MP.partnerPeer?(MP.swarmSide==='h'?'Du bist der Schwarm, '+MP.partnerName+' ist die Brigade.':'Du bist die Brigade, '+MP.partnerName+' ist der Schwarm.'):'Lade unten einen Freund ein oder erlaube Freunden, einfach beizutreten.';
     const b=el('button','wv','<b>Kampf starten</b><span>Überlebe '+VS_WAVES+' Wellen</span>');b.disabled=!MP.partnerPeer;b.onclick=()=>mpStartHost(1);ctl.appendChild(b);return}
   if(MP.role==='host'){
-    $('mpWait').textContent=MP.partnerPeer?'Wähle die Startwelle, um zu starten.':`Schick deinem Mitspieler den Code ${MP.code}. Er wählt im Menü „Mehrspieler“ und dann „Beitreten“.`;
+    $('mpWait').textContent=MP.partnerPeer?'Wähle die Startwelle, um zu starten.':'Lade unten einen Freund ein oder erlaube Freunden, einfach beizutreten.';
     const opts=[1];for(let w=21;w<=M.best;w+=20)opts.push(w);
     opts.forEach(w=>{const b=el('button','wv',`<b>Welle ${w}</b><span>${w===1?'Normaler Start':'Belohnung ×'+(1+(w-1)/20*.6).toLocaleString('de-DE',{maximumFractionDigits:1})}</span>`);
       b.disabled=!MP.partnerPeer;b.onclick=()=>mpStartHost(w);ctl.appendChild(b)});
