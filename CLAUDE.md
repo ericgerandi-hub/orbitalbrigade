@@ -14,7 +14,7 @@ Deutsches 3D-Browserspiel (three.js r128), Koop-Mehrspieler über PeerJS. Live: 
 2. `python3 src/build-site.py`
 3. Commit und Push auf `main`. GitHub Pages veröffentlicht automatisch.
 4. Warten, bis die Pages-Veröffentlichung fertig ist (`gh run list -L 1`, Commit muss „completed success“ sein), und dem Nutzer Bescheid geben: Seite mit Strg+F5 neu laden.
-5. Am Ende jeder Antwort nach einer Änderung immer den Spiel-Link mitschicken: https://ericgerandi-hub.github.io/orbitalbrigade/
+5. Am Ende jeder Antwort nach einer Änderung immer die neue Spielversion (`GAME_VER`, steht im Spiel unten im Hauptmenü als „Version …“) und den Spiel-Link mitschicken: https://ericgerandi-hub.github.io/orbitalbrigade/
 
 ## Hinweise
 - Alles, was der Nutzer sieht, auf Deutsch.
