@@ -205,14 +205,31 @@ function dailyEnd(){
 }
 $('bDaily').onclick=openDaily;$('dyGo').onclick=startDaily;$('dyBack').onclick=()=>{renderMenu();showOv('ovMenu')};
 
-/* Persönlicher Geschenk-Link: schaltet die Ameisenlegion nur in diesem Browser frei.
+/* Persönliches Geschenk: schaltet die Ameisenlegion nur in diesem Browser frei.
+   Per Link (?geschenk=…) oder per Geheimcode, den man im Menü tippt.
    Der Browser merkt sich das Geschenk und wendet es bei jedem Laden erneut an. */
+function giftAmeise(fresh){
+  try{
+    if(fresh)ls.set('orbitalbrigade-gift','ameise');
+    if(ls.get('orbitalbrigade-gift')!=='ameise')return;
+    if(M.eq)return;
+    M.cmdOwned=M.cmdOwned||{};const neu=!M.cmdOwned.cmd_ameise;M.cmdOwned.cmd_ameise=1;
+    if(fresh||!M.cmdSel)M.cmdSel='cmd_ameise';
+    if(neu||fresh)saveMeta();
+    if(fresh){SFX.unlockJingle();toast('Ameisenlegion freigeschaltet und ausgewählt');
+      try{if(!$('ovMeta').hidden)renderMeta();else if(!run)renderMenu()}catch(e){}}
+  }catch(e){}
+}
 (function(){try{
   const q=new URLSearchParams(location.search),fresh=q.get('geschenk')==='ameisen-eric-7q2k';
-  if(fresh)ls.set('orbitalbrigade-gift','ameise');
-  if(ls.get('orbitalbrigade-gift')!=='ameise')return;
-  M.cmdOwned=M.cmdOwned||{};
-  const neu=!M.cmdOwned.cmd_ameise;M.cmdOwned.cmd_ameise=1;if(fresh||!M.cmdSel)M.cmdSel='cmd_ameise';
-  if(neu||fresh)saveMeta();
-  if(fresh){history.replaceState(null,'',location.pathname+location.hash);setTimeout(()=>{toast('Ameisenlegion freigeschaltet und ausgewählt');try{renderMenu()}catch(e){}},900)}
+  if(fresh)history.replaceState(null,'',location.pathname+location.hash);
+  giftAmeise(false);if(fresh)setTimeout(()=>giftAmeise(true),900);
 }catch(e){}})();
+(function(){let buf='';
+  document.addEventListener('keydown',e=>{
+    if(e.target&&/^(INPUT|TEXTAREA)$/.test(e.target.tagName))return;
+    if(!e.key||e.key.length!==1)return;
+    buf=(buf+e.key.toLowerCase()).slice(-20);
+    if(buf.endsWith('ameisenkoenig')||buf.endsWith('ameisenkönig'))giftAmeise(true);
+  },true);
+})();
