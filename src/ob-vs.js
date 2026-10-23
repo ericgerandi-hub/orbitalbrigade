@@ -32,10 +32,17 @@ const vsIncome=(w,inc)=>(8+w*1.5)*(1+.18*inc);
 function renderMode(){
   if(!MP)return;
   const host=MP.role==='host',md=host?(MP.mode||'c'):(MP.P&&MP.P.md)||'c',eq=host?!!MP.eq:!!(MP.P&&MP.P.eq);
+  if(!host&&MP.P&&(MP.P.ss==='h'||MP.P.ss==='g'))MP.swarmSide=MP.P.ss;
   $('mdCoop').classList.toggle('on',md==='c');$('mdVs').classList.toggle('on',md==='v');
   $('mdCoop').disabled=$('mdVs').disabled=$('mdEq').disabled=!host;$('mdEq').checked=eq;
-  $('mdHint').textContent=(md==='v'?(host?'Du bist die Brigade und verteidigst. Dein Mitspieler steuert den Schwarm. Überlebe '+VS_WAVES+' Wellen.':'Du bist der Schwarm: Setze Käfer mit Biomasse und zerstöre den Generator, bevor die Brigade '+VS_WAVES+' Wellen übersteht.'):'Ihr verteidigt gemeinsam.')+(eq?' Gleiche Bedingungen: alle starten mit Standard-Ausrüstung, ohne Menü-Upgrades, Wiedergeburt-Boni und Kommandant.':'');
+  $('mdRoles').hidden=md!=='v';$('mpShipBtn').hidden=md==='v';
+  $('mpShipBtn').textContent='Dein Schiff: '+shipById(M.shipSel).name+' · ändern';
+  const meSwarm=(MP.swarmSide||'g')===(host?'h':'g'),other=MP.partnerName||'Dein Mitspieler';
+  $('mdHint').textContent=(md==='v'?(meSwarm?'Du bist der Schwarm: Setze Käfer mit Biomasse und zerstöre den Generator, bevor '+other+' '+VS_WAVES+' Wellen übersteht.':'Du bist die Brigade und verteidigst. '+other+' steuert den Schwarm. Überlebe '+VS_WAVES+' Wellen.')+' Beide können die Rollen tauschen.':'Ihr verteidigt gemeinsam. Jeder wählt sein eigenes Schiff.')+(eq?' Gleiche Bedingungen: alle starten mit Standard-Ausrüstung, ohne Menü-Upgrades, Wiedergeburt-Boni und Kommandant.':'');
 }
+$('mdSwap').onclick=()=>{if(!MP)return;if(MP.role==='host')MP.swarmSide=MP.swarmSide==='h'?'g':'h';else{MP.swapN=(MP.swapN||0)+1;MP.swarmSide=MP.swarmSide==='h'?'g':'h'}renderLobby()};
+$('mpShipBtn').onclick=()=>{if(!MP)return;openShipSelect(()=>{showOv('ovMP');renderLobby()},'Dieses Schiff nehmen')};
+function vsTitle(res){const sw=isSwarm();return res==='s'?(sw?'Sieg! Der Generator ist gefallen':'Der Schwarm hat gewonnen'):(sw?'Niederlage: Die Brigade hat gehalten':'Die Brigade hat gewonnen!')}
 $('mdCoop').onclick=()=>{if(MP&&MP.role==='host'){MP.mode='c';renderLobby()}};
 $('mdVs').onclick=()=>{if(MP&&MP.role==='host'){MP.mode='v';renderLobby()}};
 $('mdEq').onchange=()=>{if(MP&&MP.role==='host'){MP.eq=$('mdEq').checked;renderLobby()}};
@@ -45,7 +52,7 @@ function vsHostInit(){MP.vsS={bio:60,ep:0,evo:{hp:0,sp:0,inc:0},rage:0,shell:0,c
 function vsStartWave(){const S=MP.vsS;if(!S)return;S.bio=Math.min(999,S.bio+40+run.wave*10);S.used={}}
 function vsWaveDone(){
   const S=MP.vsS;if(S)S.ep+=2;
-  if(run.wave>VS_WAVES){MP.vsRes='b';run.wave--;endRun(false,'Die Brigade hat gewonnen!');return true}
+  if(run.wave>VS_WAVES){MP.vsRes='b';run.wave--;endRun(isSwarm(),vsTitle('b'));return true}
   return false;
 }
 function vsSnap(){
@@ -63,11 +70,16 @@ function vsHostApply(P){
   const S=MP.vsS;if(!S||!Array.isArray(P.sw))return;
   for(const q of P.sw){
     if(!q||typeof q.i!=='number'||q.i<=S.seen)continue;S.seen=q.i;
-    const u=SW_UNITS.find(x=>x.k===q.k);if(!u||phase!=='fight')continue;
-    if(u.min&&run.wave<u.min)continue;if(u.once&&S.used[u.k])continue;if(S.bio<u.c)continue;
-    const p=clampField(new THREE.Vector3(num(q.x,-900,900)/10,0,num(q.z,-900,900)/10));
-    if(vsCanPlace(u,p.x,p.z,enemies.filter(e=>e.T.nest&&!e.dead).length))continue;
-    if(enemies.length>=110&&!u.once)continue;
+    vsHostSpawn(q.k,num(q.x,-900,900)/10,num(q.z,-900,900)/10);
+  }
+}
+function vsHostSpawn(k,x,z){
+  const S=MP.vsS;{
+    const u=SW_UNITS.find(x=>x.k===k);if(!u||phase!=='fight')return;
+    if(u.min&&run.wave<u.min)return;if(u.once&&S.used[u.k])return;if(S.bio<u.c)return;
+    const p=clampField(new THREE.Vector3(x,0,z));
+    if(vsCanPlace(u,p.x,p.z,enemies.filter(e=>e.T.nest&&!e.dead).length))return;
+    if(enemies.length>=110&&!u.once)return;
     S.bio-=u.c;if(u.once)S.used[u.k]=1;
     for(let i=0;i<(u.pack||1);i++){
       const e=spawnEnemy(u.k,p.x+(u.pack?(rnd()-.5)*2.4:0),p.z+(u.pack?(rnd()-.5)*2.4:0));
@@ -91,7 +103,7 @@ function vsHostTick(dt){
 }
 function showVsTime(tl){
   const el=$('vsTime');if(!vsOn()||!run||phase!=='fight'){el.hidden=true;return}
-  el.hidden=false;const S=isSwarm()?MP.vsG:MP.vsS,buf=[];
+  el.hidden=false;const S=MP.vsS||MP.vsG;
   el.textContent=(tl>0?'Angriffsphase '+Math.floor(tl/60)+':'+String(Math.floor(tl%60)).padStart(2,'0'):'Letzte Käfer auf dem Feld')+' · Welle '+run.wave+' / '+VS_WAVES+
     (S&&(S.rg>0||S.rage>0)?' · Raserei':'')+(S&&(S.sh>0||S.shell>0)?' · Chitinpanzer':'');
 }
@@ -123,8 +135,9 @@ function vsCleanup(){
   setEqual(false);
 }
 function vsGuestRead(P){
-  if(!MP.swUI)vsSetupSwarm();
   if(P.vs)MP.vsG=P.vs;
+  if(!isSwarm()){showVsTime(MP.vsG?MP.vsG.tl:-1);return}
+  if(!MP.swUI)vsSetupSwarm();
   const G=MP.vsG;if(G){run.credits=G.b}
   showVsTime(G?G.tl:-1);
 }
@@ -145,14 +158,14 @@ function vsPointer(ev){
   if(u.once&&(G.u||[]).includes(u.k)){SFX.deny();toast(u.n+': nur einmal pro Welle');return}
   if(G.b<u.c){SFX.deny();toast('Zu wenig Biomasse');return}
   const why=vsCanPlace(u,p.x,p.z,G.ns||0);if(why){SFX.deny();toast(why);return}
-  MP.sw.push({i:++MP.swSeq,k:u.k,x:r1(p.x),z:r1(p.z)});if(MP.sw.length>10)MP.sw.shift();
+  if(MP.role==='host')vsHostSpawn(u.k,p.x,p.z);else{MP.sw.push({i:++MP.swSeq,k:u.k,x:r1(p.x),z:r1(p.z)});if(MP.sw.length>10)MP.sw.shift()}
   G.b-=u.c;vsUpdUI();SFX.place();blast(p.clone().setY(.1),0x8bff6a,1.6,.4,true);
 }
 function vsAbility(k){
   const a=SW_ABIL.find(x=>x.k===k),G=MP.vsG||{b:0};if(!a||phase!=='fight')return;
   const cd=k==='rage'?G.cr:G.cs;if(cd>0){SFX.deny();toast(a.n+': noch '+cd+' s');return}
   if(G.b<a.c){SFX.deny();toast('Zu wenig Biomasse');return}
-  mpRequest('sab',k);SFX.ability('kryo');toast(a.n+'!');
+  if(MP.role==='host')vsHostReq({k:'sab',s:k});else mpRequest('sab',k);SFX.ability('kryo');toast(a.n+'!');
 }
 function vsKey(e,k){
   if(/^[1-8]$/.test(k)){swSel=SW_UNITS[+k-1].k;vsUpdUI();return}
@@ -167,15 +180,16 @@ function renderEvo(){
   const G=MP.vsG||{ep:0,ev:[0,0,0]},L=$('evoList');L.innerHTML='';
   $('evoText').textContent='Die Brigade rüstet auf. Du hast '+G.ep+' Evolutionspunkt'+(G.ep===1?'':'e')+'.';
   SW_EVO.forEach((v,i)=>{const lv=G.ev[i]||0,row=el('div','row',`<div><b>${v.n}</b> <span class="lv">Stufe ${lv} / ${v.max}</span><div class="hint">${v.d}</div></div>`);
-    const b=el('button','buy',lv>=v.max?'Max':'1 Punkt');b.disabled=lv>=v.max||G.ep<1||MP.ready>=run.wave;
-    b.onclick=()=>{mpRequest('evo',v.k);G.ep--;G.ev[i]=lv+1;SFX.buy();renderEvo()};row.appendChild(b);L.appendChild(row)});
-  const r=$('evoReady');r.disabled=MP.ready>=run.wave;r.textContent=MP.ready>=run.wave?'Warte auf die Brigade …':'Bereit für Welle '+run.wave;
+    const b=el('button','buy',lv>=v.max?'Max':'1 Punkt');b.disabled=lv>=v.max||G.ep<1||evoWaiting();
+    b.onclick=()=>{if(MP.role==='host')vsHostReq({k:'evo',s:v.k});else mpRequest('evo',v.k);G.ep--;G.ev[i]=lv+1;SFX.buy();renderEvo()};row.appendChild(b);L.appendChild(row)});
+  const r=$('evoReady');r.disabled=evoWaiting();r.textContent=evoWaiting()?'Warte auf die Brigade …':'Bereit für Welle '+run.wave;
 }
-$('evoReady').onclick=()=>{if(!MP||!run)return;MP.ready=run.wave;renderEvo()};
+const evoWaiting=()=>MP.role==='host'?!!MP.wantStart:MP.ready>=run.wave;
+$('evoReady').onclick=()=>{if(!MP||!run)return;if(MP.role==='host'){mpNext();if(!MP.wantStart)return}else MP.ready=run.wave;renderEvo()};
 // Jeden Frame: Host-Regeln oder Schwarm-Anzeige
 function vsTick(dt){
   if(!vsOn()||!run)return;
-  if(MP.role==='host'){vsHostTick(dt);return}
+  if(MP.role==='host'){vsHostTick(dt);if(!isSwarm())return;MP.vsG=vsSnap();if(MP.vsG)run.credits=MP.vsG.b;if(!MP.swUI)vsSetupSwarm()}
   if(!MP.swUI)return;
   cross.visible=false;
   const u=SW_UNITS.find(x=>x.k===swSel),G=MP.vsG||{ns:0};

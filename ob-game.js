@@ -17,12 +17,12 @@ const tmp=new THREE.Vector3(),tmp2=new THREE.Vector3(),tmp3=new THREE.Vector3(),
 let cmdBuffT=0;
 const laser={on:0,p:new THREE.Vector3()};
 const act={luft:null,barrage:null};
-const R=(id,k)=>val(id,k,run);
+const R=(id,k)=>val(id,k,run)*shipMul(id,k);
 /* Mehrspieler (Logik in ob-mp.js) */
 let MP=null,enemySeq=0,structSeq=0;
 const FS0={get turrets(){return turrets},ship};let FS=FS0;
 const mpHp=()=>MP&&!MP.vs?1.75:1,mpCount=()=>MP&&!MP.vs?1.3:1;
-const vsOn=()=>!!(MP&&MP.vs),isSwarm=()=>!!(MP&&MP.vs&&MP.role==='guest');
+const vsOn=()=>!!(MP&&MP.vs),isSwarm=()=>!!(MP&&MP.vs&&((MP.role==='host')===(MP.swarmSide==='h')));
 const actR={luft:null,barrage:null},laser2={on:0,p:new THREE.Vector3()};
 const beam2=beam.clone(),laserHit2=laserHit.clone();beam2.visible=laserHit2.visible=false;scene.add(beam2,laserHit2);
 
@@ -41,7 +41,7 @@ function lerpAngle(a,b,k){let d=b-a;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.P
 function wait(t,fn){later.push({t,fn,cos:COSMETIC})}
 
 /* ---------- Oberfläche: Helfer ---------- */
-const OVERLAYS=['ovEvo','ovMP','ovDevice','ovMenu','ovRebirth','ovReset','ovKeys','ovStartSel','ovMeta','ovRun','ovLevel','ovPause','ovOver'];
+const OVERLAYS=['ovShip','ovEvo','ovMP','ovDevice','ovMenu','ovRebirth','ovReset','ovKeys','ovStartSel','ovMeta','ovRun','ovLevel','ovPause','ovOver'];
 function showOv(id){OVERLAYS.forEach(o=>$(o).hidden=o!==id)}
 let toastT=0;
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600)}
@@ -1304,6 +1304,41 @@ function spawnPoint(w){
   const ln=lanes()[rnd()*3|0];return{x:ln.x+(rnd()-.5)*2*ln.j,z:ln.z+rnd()*2};
 }
 
+/* ---------- Schiffsauswahl mit Vorschau ---------- */
+let shipIdx=0,shipThen=null,showcaseA=0;
+const shipById=id=>SHIPS.find(x=>x.id===id)||SHIPS[0];
+function curShip(){return run&&run.ship?shipById(run.ship):shipById(M.shipSel)}
+function shipMods(S){return S?S.m:{}}
+function partnerShip(){return MP&&MP.P&&!MP.vs&&typeof MP.P.sh==='string'?shipById(MP.P.sh):null}
+function shipMul(id,k){
+  if(!run||!run.ship)return 1;const it=ITEMS[id];if(!it)return 1;const m=shipMods(curShip());
+  if(it.kind==='weapon'){if(k==='dmg'||k==='dps')return m.wdmg||1;if(k==='rate')return m.wrate||1}
+  else if(it.kind==='ability'){if(k==='cd')return m.abil||1;if(k==='dmg'||k==='dps')return m.adm||1}
+  else if(it.kind==='support'){if(k==='cd')return m.sup||1}
+  else if(it.kind==='base'&&k==='maxhp'){const p=MP&&MP.role==='host'?partnerShip():null;return (m.hp||1)*(p&&p.m.hp||1)}
+  return 1;
+}
+function shipRegen(){const p=MP&&MP.role==='host'?partnerShip():null;return (shipMods(curShip()).regen||0)+(p&&p.m.regen||0)}
+function fmtMod(k,v){if(k==='regen')return'+'+v.toLocaleString('de-DE')+' pro s';const pct=Math.round((v-1)*100);return(pct>0?'+':'−')+Math.abs(pct)+' %'}
+function goodMod(k,v){return k==='regen'?v>0:(k==='sup'||k==='abil')?v<1:v>1}
+function openShipSelect(then,label){
+  shipThen=then;shipIdx=Math.max(0,SHIPS.findIndex(s=>s.id===(M.shipSel||'bastion')));
+  $('shGo').textContent=label||'Mit diesem Schiff starten';renderShip();showOv('ovShip');
+}
+function renderShip(){
+  const S=SHIPS[shipIdx];setShipModel(ship,S.id);
+  $('shName').textContent=S.name;$('shCls').textContent=S.cls;$('shDesc').textContent=S.d;
+  const d=$('shDots');d.innerHTML='';SHIPS.forEach((x,i)=>{const e=el('i',i===shipIdx?'on':'');e.onclick=()=>{shipIdx=i;renderShip()};d.appendChild(e)});
+  const L=$('shMods');L.innerHTML='';const ks=Object.keys(S.m);
+  if(!ks.length)L.appendChild(el('li','neutral','Keine Stärken und keine Schwächen'));
+  ks.sort((a,b)=>goodMod(b,S.m[b])-goodMod(a,S.m[a])).forEach(k=>{const v=S.m[k],li=el('li',goodMod(k,v)?'plus':'minus',`<span>${SHIP_MOD_TXT[k]}</span><b>${fmtMod(k,v)}</b>`);L.appendChild(li)});
+}
+$('shPrev').onclick=()=>{shipIdx=(shipIdx+SHIPS.length-1)%SHIPS.length;renderShip();SFX.click()};
+$('shNext').onclick=()=>{shipIdx=(shipIdx+1)%SHIPS.length;renderShip();SFX.click()};
+$('shGo').onclick=()=>{M.shipSel=SHIPS[shipIdx].id;saveMeta();SFX.buy();const f=shipThen;shipThen=null;if(f)f()};
+$('shBack').onclick=()=>{setShipModel(ship,M.shipSel||'bastion');const f=shipThen;shipThen=null;if(MP){showOv('ovMP');renderLobby()}else{renderMenu();showOv('ovMenu')}};
+addEventListener('keydown',e=>{if($('ovShip').hidden)return;if(e.key==='ArrowLeft')$('shPrev').click();else if(e.key==='ArrowRight')$('shNext').click();else if(e.key==='Enter'){e.preventDefault();$('shGo').click()}});
+
 function rebuildRing(){
   const lvl=Math.round(R('basis','ring'));if(lvl<=0)return;
   for(let k=0;k<5;k++){
@@ -1527,7 +1562,7 @@ function clearAll(){
 }
 function startRun(start,tut=false){
   clearAll();
-  run=newRun(start,tut);
+  run=newRun(start,tut);run.ship=tut||(MP&&MP.vs)?'bastion':(M.shipSel||'bastion');setShipModel(ship,run.ship);
   run.credits=Math.round(R('allg','startcr')+(start-1)*22);
   run.hp=R('basis','maxhp');run.ammoMax=R('kanone','ammo');run.ammo=run.ammoMax;
   if(tut)setMap(0);else if(!(MP&&MP.role==='guest'))setMap(rnd()*MAPS.length|0);env.snow=!!MAP.snow;
@@ -1568,12 +1603,12 @@ function waveDone(){
   endGuided();run.ev=null;if(run.blackout>0){run.blackout=0;$('app').classList.remove('blackout')}
   bankMedals();run.wave++;SFX.waveClear();
   if(vsOn()&&vsWaveDone())return;
-  openRunShop(false);
+  if(isSwarm())vsOpenEvo();else openRunShop(false);
 }
 function endRun(died,title){
   if(!run||phase==='over')return;
   bankMedals();M.best=Math.max(M.best,run.wave);M.bestAll=Math.max(M.bestAll,M.best);saveMeta();
-  if(vsOn()&&MP.role==='host'&&died&&!title){title='Der Schwarm hat gewonnen';MP.vsRes='s'}
+  if(vsOn()&&MP.role==='host'&&died&&!title){MP.vsRes='s';title=vsTitle('s');died=!isSwarm()}
   phase='over';halted=false;hold=null;exitPlacing();endGuided();if(died)SFX.gameOver();
   $('overTitle').textContent=title||(died?'Schildgenerator zerstört':'Run beendet');
   const sum=$('overSum');sum.innerHTML='';
@@ -1890,13 +1925,14 @@ function renderMenu(){
   $('mRebirth').textContent=`Wiedergeburt ${M.rebirths} · ${M.stars} Sterne · Schaden +${M.rebirths*25} %, Geld +${M.rebirths*20} %`+(M.cmdSel&&M.cmdOwned[M.cmdSel]?' · Kommandant: '+ITEMS[M.cmdSel].name:'');
   if(M.bestAll>M.best)$('mBest').textContent+=` · Allzeit: Welle ${M.bestAll}`;
 }
-$('bPlay').onclick=()=>{
+$('bPlay').onclick=()=>openShipSelect(playFlow);
+function playFlow(){
   const opts=[1];for(let w=21;w<=M.best;w+=20)opts.push(w);
   if(opts.length===1){startRun(1);return}
   const L=$('waveList');L.innerHTML='';
   opts.forEach(w=>{const m=1+(w-1)/20*.6;const b=el('button','wv',`<b>Welle ${w}</b><span>Belohnung ×${m.toLocaleString('de-DE',{maximumFractionDigits:1})}</span>${w>1?`<span>+${fmt(R('allg','startcr')+(w-1)*22)} Startcredits</span>`:''}`);b.onclick=()=>startRun(w);L.appendChild(b)});
   showOv('ovStartSel');
-};
+}
 $('bStartBack').onclick=()=>showOv('ovMenu');
 $('bTut').onclick=()=>startRun(1,true);
 $('bKeys').onclick=()=>showOv('ovKeys');
@@ -2065,6 +2101,7 @@ function update(dt,t){
    if(shake>0)camera.position.add(tmp.set((rnd()-.5)*shake,(rnd()-.5)*shake,0));
    camera.lookAt(look);}
   if(guided)guidedCamera();
+  if(!$('ovShip').hidden){showcaseA+=dt*.3;const sp=ship.position;camera.position.set(sp.x+Math.sin(showcaseA)*58,sp.y+12+Math.sin(showcaseA*.7)*4,sp.z+Math.cos(showcaseA)*58);camera.lookAt(sp.x,sp.y-2,sp.z)}
   env.t=(env.t+dt/(run&&play()&&!halted?300:900))%1;updateEnv(dt);SFX.ambient(dt,env);
   updateFx(dt);updateTracers(dt);updateMarks(dt,t);
   // Terraforming: ab Welle 10 wird der Planet grüner, voll grün ab etwa Welle 55
@@ -2126,7 +2163,7 @@ function update(dt,t){
     updateZombies(dt);
     updateCommander(dt,t);
     updateBaseGuns(dt);
-    if(!run.tut)run.hp=Math.min(R('basis','maxhp'),run.hp+R('basis','shreg')*dt);
+    if(!run.tut)run.hp=Math.min(R('basis','maxhp'),run.hp+(R('basis','shreg')+shipRegen())*dt);
   }
   if(bossE&&bossE.dead)bossE=enemies.find(e=>e.T.boss&&!e.dead)||null;
   $('boss').hidden=!bossE;

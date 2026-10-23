@@ -301,43 +301,125 @@ function buildBaseGuns(n){
 const ship=new THREE.Group();scene.add(ship);
 const SHIP_POS=new THREE.Vector3(2,31,-58);
 ship.position.copy(SHIP_POS);ship.rotation.set(0.04,Math.PI-0.42,0.05);ship.scale.setScalar(1.6);
-{
+/* ---------- Schiffsklassen: eigenes Aussehen, Stärken und Schwächen ---------- */
+const SHIPS=[
+  {id:'bastion',name:'Bastion',cls:'Schlachtschiff',d:'Das bewährte Arbeitstier der Brigade. Ausgewogen, ohne Schwächen und ohne Extras.',m:{},tint:0xc8ccd6,glow:0x5fd0ff},
+  {id:'hammer',name:'Hammerhai',cls:'Zerstörer',d:'Gebaut für maximale Feuerkraft. Für die Geschütze musste die Schildtechnik weichen.',m:{wdmg:1.25,wrate:1.1,hp:.75},tint:0xb8a8a8,glow:0xff7a4a},
+  {id:'arche',name:'Arche',cls:'Träger',d:'Ein fliegender Hangar. Bringt Truppen, Gebäude und Fahrzeuge schneller aufs Feld.',m:{sup:.7,wdmg:.85},tint:0xb4bfa8,glow:0xffd23f},
+  {id:'aegis',name:'Aegis',cls:'Schildkreuzer',d:'Projiziert zusätzliche Energie in den Generator. Die Geschütze feuern etwas träger.',m:{hp:1.4,regen:1.5,wrate:.85},tint:0xa8c0d6,glow:0x7cf0ff},
+  {id:'phantom',name:'Phantom',cls:'Tarnfregatte',d:'Experimentelle Orbitaltechnik: Fähigkeiten laden schneller und treffen härter.',m:{abil:.7,adm:1.2,wdmg:.9},tint:0x5a6070,glow:0xc77dff},
+];
+const SHIP_MOD_TXT={wdmg:'Waffenschaden',wrate:'Feuerrate',hp:'Generator-Schild',regen:'Schild-Regeneration',sup:'Abklingzeit Unterstützung',abil:'Abklingzeit Fähigkeiten',adm:'Schaden Fähigkeiten'};
+const shipMats={};
+function shipMatsFor(S){
+  if(shipMats[S.id])return shipMats[S.id];
+  const hull=new THREE.MeshStandardMaterial({map:hullTex,color:S.tint,roughness:.62,metalness:.55});
+  const big=new THREE.MeshStandardMaterial({map:hullTexBig,color:S.tint,roughness:.62,metalness:.55});
+  const acc=new THREE.MeshStandardMaterial({color:S.glow,emissive:S.glow,emissiveIntensity:.35,roughness:.4});
+  const line=new THREE.MeshBasicMaterial({color:S.glow});
+  return shipMats[S.id]={hull,big,acc,line};
+}
+function hullFrom(g,M,sx,sz,depth,y){
+  const s=new THREE.Shape();
+  [[0,18],[1.6,13],[2.8,7],[3,4],[5,2],[5,-5],[3.6,-9],[3.6,-14],[-3.6,-14],[-3.6,-9],[-5,-5],[-5,2],[-3,4],[-2.8,7],[-1.6,13]].forEach((p,i)=>i?s.lineTo(p[0]*sx,p[1]*sz):s.moveTo(p[0]*sx,p[1]*sz));
+  s.closePath();const hg=new THREE.ExtrudeGeometry(s,{depth,bevelEnabled:true,bevelThickness:.25,bevelSize:.25,bevelSegments:1});
+  hg.rotateX(Math.PI/2);hg.translate(0,y,0);const h=new THREE.Mesh(hg,M.big);h.castShadow=true;g.add(h);return h;
+}
+function engines(g,xs,z,col,r=1){
+  for(const x of xs){
+    const e=new THREE.Mesh(new THREE.CylinderGeometry(r,r*1.15,2.2,12),darkMat);e.rotation.x=Math.PI/2;e.position.set(x,0.2,z);g.add(e);
+    const d=new THREE.Mesh(new THREE.CircleGeometry(r*.85,16),new THREE.MeshBasicMaterial({color:col}));d.position.set(x,0.2,z-1.15);d.rotation.y=Math.PI;g.add(d);
+    const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:col,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));
+    gl.scale.set(4.5*r,4.5*r,1);gl.position.set(x,0.2,z-1.6);g.add(gl);g.userData.glows.push(gl);
+  }
+}
+function buildBastion(g,M){
   const s=new THREE.Shape();
   [[0,18],[1.6,13],[2.8,7],[3,4],[5,2],[5,-5],[3.6,-9],[3.6,-14],[-3.6,-14],[-3.6,-9],[-5,-5],[-5,2],[-3,4],[-2.8,7],[-1.6,13]].forEach((p,i)=>i?s.lineTo(p[0],p[1]):s.moveTo(p[0],p[1]));
   s.closePath();
   const hg=new THREE.ExtrudeGeometry(s,{depth:2.4,bevelEnabled:true,bevelThickness:.25,bevelSize:.25,bevelSegments:1});
   hg.rotateX(Math.PI/2);hg.translate(0,1.2,0);
-  const hull=new THREE.Mesh(hg,hullMatBig);hull.castShadow=true;ship.add(hull);
-  box(2.4,1,22,darkMat,0,-1.6,1,ship);
-  box(4.4,1.1,12,hullMat,0,1.9,-3,ship);
-  box(3,1,7,hullMat,0,2.9,-4,ship);
-  box(2.2,2.4,2.6,hullMat,0,4.4,0.5,ship);
-  box(2.24,0.25,2.64,winMat,0,4.9,0.5,ship);
-  box(3.4,0.5,1.4,hullMat,0,5.85,0.2,ship);
-  [[-.8,.4],[.7,-.3]].forEach(([x,z],i)=>{const a=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,2.4+i,4),darkMat);a.position.set(x,7.2+i*.5,z);ship.add(a)});
+  const hull=new THREE.Mesh(hg,M.big);hull.castShadow=true;g.add(hull);
+  box(2.4,1,22,darkMat,0,-1.6,1,g);
+  box(4.4,1.1,12,M.hull,0,1.9,-3,g);
+  box(3,1,7,M.hull,0,2.9,-4,g);
+  box(2.2,2.4,2.6,M.hull,0,4.4,0.5,g);
+  box(2.24,0.25,2.64,winMat,0,4.9,0.5,g);
+  box(3.4,0.5,1.4,M.hull,0,5.85,0.2,g);
+  [[-.8,.4],[.7,-.3]].forEach(([x,z],i)=>{const a=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,2.4+i,4),darkMat);a.position.set(x,7.2+i*.5,z);g.add(a)});
   [-1,1].forEach(sd=>{
-    box(1.6,1.8,9,hullMat,sd*5.2,0.6,-1.5,ship);
-    for(let k=0;k<4;k++)box(0.1,0.35,1.2,winMat,sd*6.02,0.9,-4.5+k*2,ship);
-    box(0.3,0.06,7,yellowMat,sd*5.2,1.55,-1.5,ship);
+    box(1.6,1.8,9,M.hull,sd*5.2,0.6,-1.5,g);
+    for(let k=0;k<4;k++)box(0.1,0.35,1.2,winMat,sd*6.02,0.9,-4.5+k*2,g);
+    box(0.3,0.06,7,yellowMat,sd*5.2,1.55,-1.5,g);
   });
-  box(1,0.7,8,hullMat,0,1.6,10,ship);
-  for(let k=0;k<3;k++)[-1,1].forEach(sd=>{const m=box(1.8,0.06,0.35,yellowMat,sd*0.75,1.24,13-k*1.1,ship);m.rotation.y=sd*0.6});
+  box(1,0.7,8,M.hull,0,1.6,10,g);
+  for(let k=0;k<3;k++)[-1,1].forEach(sd=>{const m=box(1.8,0.06,0.35,yellowMat,sd*0.75,1.24,13-k*1.1,g);m.rotation.y=sd*0.6});
   const num=new THREE.Mesh(new THREE.PlaneGeometry(3.4,1.3),new THREE.MeshBasicMaterial({map:numTex,transparent:true}));
-  num.rotation.set(-Math.PI/2,0,Math.PI);num.position.set(0,1.26,6.4);ship.add(num);
-  for(let k=0;k<6;k++){const m=box(0.35,0.06,1.6,yellowMat,-2.6+k*1.05,1.24,-12.6,ship);m.rotation.y=0.6}
-  ship.userData.glows=[];
+  num.rotation.set(-Math.PI/2,0,Math.PI);num.position.set(0,1.26,6.4);g.add(num);
+  for(let k=0;k<6;k++){const m=box(0.35,0.06,1.6,yellowMat,-2.6+k*1.05,1.24,-12.6,g);m.rotation.y=0.6}
+  g.userData.glows=[];
   [-2.3,0,2.3].forEach(x=>{
-    const e=new THREE.Mesh(new THREE.CylinderGeometry(1,1.15,2.2,12),darkMat);e.rotation.x=Math.PI/2;e.position.set(x,0.2,-14.6);ship.add(e);
-    const d=new THREE.Mesh(new THREE.CircleGeometry(0.85,16),new THREE.MeshBasicMaterial({color:0x7fdcff}));d.position.set(x,0.2,-15.75);d.rotation.y=Math.PI;ship.add(d);
+    const e=new THREE.Mesh(new THREE.CylinderGeometry(1,1.15,2.2,12),darkMat);e.rotation.x=Math.PI/2;e.position.set(x,0.2,-14.6);g.add(e);
+    const d=new THREE.Mesh(new THREE.CircleGeometry(0.85,16),new THREE.MeshBasicMaterial({color:0x7fdcff}));d.position.set(x,0.2,-15.75);d.rotation.y=Math.PI;g.add(d);
     const gl=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0x5fd0ff,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));
-    gl.scale.set(4.5,4.5,1);gl.position.set(x,0.2,-16.2);ship.add(gl);ship.userData.glows.push(gl);
+    gl.scale.set(4.5,4.5,1);gl.position.set(x,0.2,-16.2);g.add(gl);g.userData.glows.push(gl);
   });
-  const el=new THREE.PointLight(0x5fd0ff,1.4,40);el.position.set(0,0,-18);ship.add(el);
-  [[-5.9,0.6,2],[5.9,0.6,2]].forEach(([x,y,z],i)=>{const l=new THREE.Mesh(new THREE.SphereGeometry(.18,8,6),new THREE.MeshBasicMaterial({color:i?0x7cf0a8:0xff5d5d}));l.position.set(x,y,z);ship.add(l)});
+  const el=new THREE.PointLight(0x5fd0ff,1.4,40);el.position.set(0,0,-18);g.add(el);
+  [[-5.9,0.6,2],[5.9,0.6,2]].forEach(([x,y,z],i)=>{const l=new THREE.Mesh(new THREE.SphereGeometry(.18,8,6),new THREE.MeshBasicMaterial({color:i?0x7cf0a8:0xff5d5d}));l.position.set(x,y,z);g.add(l)});
 }
+function buildHammer(g,M){
+  g.userData.glows=[];
+  hullFrom(g,M,.72,1.22,2,1.1);
+  box(2,1,24,darkMat,0,-1.5,1,g);box(3,1,10,M.hull,0,1.8,-6,g);
+  box(2,2,2.4,M.hull,0,3.4,-8,g);box(2.04,.22,2.44,winMat,0,3.9,-8,g);
+  box(11,.9,2.4,M.hull,0,.9,20.5,g);
+  [-1,1].forEach(sd=>{const pod=new THREE.Mesh(new THREE.CylinderGeometry(.9,.9,4.2,10),M.hull);pod.rotation.x=Math.PI/2;pod.position.set(sd*5.6,.9,20.5);g.add(pod);
+    const tip=new THREE.Mesh(new THREE.ConeGeometry(.9,1.6,10),M.acc);tip.rotation.x=Math.PI/2;tip.position.set(sd*5.6,.9,23.3);g.add(tip);
+    box(.45,.45,17,darkMat,sd*3.1,1.4,2,g);box(.2,.08,15,M.line,sd*3.1,1.66,2,g);
+    for(let k=0;k<3;k++){const m=box(1.6,.06,.3,M.acc,sd*.9,1.22,12-k*1.2,g);m.rotation.y=sd*.6}});
+  engines(g,[-1.7,1.7],-18.6,0xff7a4a,1.1);
+}
+function buildArche(g,M){
+  g.userData.glows=[];
+  hullFrom(g,M,1.45,.95,1.6,.6);
+  box(10,.35,25,M.hull,0,1.1,0,g);box(.25,.06,22,yellowMat,0,1.31,0,g);
+  for(let k=0;k<9;k++)[-1,1].forEach(sd=>box(.3,.06,.3,M.line,sd*4.4,1.31,-10+k*2.5,g));
+  box(1.8,3.6,4.2,M.hull,4.6,3.1,-3,g);box(1.84,.3,4.24,winMat,4.6,4.4,-3,g);box(.1,1.6,.1,darkMat,4.6,5.7,-3,g);
+  box(7,1.6,.4,darkMat,0,0,11.6,g);
+  [-1,1].forEach(sd=>{box(1.8,1.4,10,M.hull,sd*7,.1,-2,g);for(let k=0;k<4;k++)box(.1,.5,1.4,M.line,sd*7.92,.2,-5.5+k*2.3,g)});
+  engines(g,[-4.2,-1.4,1.4,4.2],-13.5,0xffd23f,.85);
+}
+function buildAegis(g,M){
+  g.userData.glows=[];
+  hullFrom(g,M,1.15,.9,3,1.6);
+  box(5,1.4,10,M.hull,0,2,-2,g);
+  const dome=new THREE.Mesh(new THREE.SphereGeometry(4,24,12,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:0x7cf0ff,emissive:0x1a6a7a,transparent:true,opacity:.45,roughness:.1}));
+  dome.position.set(0,2.7,1);g.add(dome);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(4.1,.25,8,32),M.acc);ring.rotation.x=Math.PI/2;ring.position.set(0,2.7,1);g.add(ring);
+  [[-5,6],[5,6],[-5,-8],[5,-8]].forEach(([x,z])=>{box(.7,2.6,.7,M.hull,x,2.2,z,g);const o=new THREE.Mesh(new THREE.SphereGeometry(.55,12,8),M.line);o.position.set(x,3.8,z);g.add(o)});
+  engines(g,[-2.6,0,2.6],-13.8,0x7cf0ff);
+}
+function buildPhantom(g,M){
+  g.userData.glows=[];
+  hullFrom(g,M,.85,1.05,1.2,.7);
+  [-1,1].forEach(sd=>{const w=new THREE.Shape();w.moveTo(0,6);w.lineTo(sd*11,-10);w.lineTo(sd*9,-13);w.lineTo(0,-8);w.closePath();
+    const wg=new THREE.ExtrudeGeometry(w,{depth:.5,bevelEnabled:false});wg.rotateX(Math.PI/2);wg.translate(0,.4,0);const m=new THREE.Mesh(wg,M.big);m.castShadow=true;g.add(m);
+    const e=box(.18,.1,15,M.line,sd*5.3,.45,-2.2,g);e.rotation.y=-sd*.6});
+  box(1.6,1.2,6,M.hull,0,1.6,-2,g);box(1.64,.2,2.6,M.line,0,2.25,0,g);
+  box(.15,.08,26,M.line,0,1.08,1,g);
+  engines(g,[-1.5,1.5],-14.6,0xc77dff,.9);
+}
+const SHIP_BUILD={bastion:buildBastion,hammer:buildHammer,arche:buildArche,aegis:buildAegis,phantom:buildPhantom};
+function setShipModel(obj,id){
+  const S=SHIPS.find(x=>x.id===id)||SHIPS[0];if(obj.userData.model&&obj.userData.shipId===S.id)return;
+  if(obj.userData.model)obj.remove(obj.userData.model);
+  const g=new THREE.Group();g.userData.glows=[];SHIP_BUILD[S.id](g,shipMatsFor(S));
+  obj.add(g);obj.userData.model=g;obj.userData.shipId=S.id;obj.userData.glows=g.userData.glows;
+}
+setShipModel(ship,'bastion');
 /* Zweites Schiff für den Mitspieler und Namensschilder */
-const ship2=ship.clone();ship2.visible=false;scene.add(ship2);
-ship2.userData.glows=ship2.children.filter(c=>c.isSprite);
+const ship2=new THREE.Group();ship2.position.copy(ship.position);ship2.rotation.copy(ship.rotation);ship2.scale.copy(ship.scale);ship2.visible=false;scene.add(ship2);
+setShipModel(ship2,'bastion');
 const ship2Tip=new THREE.Object3D();ship2Tip.position.set(0,-2.8,2);ship2.add(ship2Tip);
 function makeLabel(){
   const c=document.createElement('canvas');c.width=512;c.height=96;

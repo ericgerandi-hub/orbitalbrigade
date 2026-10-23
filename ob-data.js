@@ -213,7 +213,7 @@ const WEAPON_IDS=KIND_IDS('weapon'), ABILITY_IDS=KIND_IDS('ability'), SUPPORT_ID
 /* ---- Speicherstand ---- */
 const META_KEY='orbitalbrigade-meta-v2';
 const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
-function freshMeta(){return{medals:0,unlocked:{kanone:1,orbital:1,trupp:1},lv:{},best:0,runs:0,tut:0,rebirths:0,stars:0,bestAll:0,cmdOwned:{},cmdSel:null,ench:{}}}
+function freshMeta(){return{shipSel:'bastion',medals:0,unlocked:{kanone:1,orbital:1,trupp:1},lv:{},best:0,runs:0,tut:0,rebirths:0,stars:0,bestAll:0,cmdOwned:{},cmdSel:null,ench:{}}}
 function loadMeta(){
   try{const d=JSON.parse(ls.get(META_KEY)||'null');if(d&&d.unlocked){const f=freshMeta();return Object.assign(f,d,{unlocked:Object.assign(f.unlocked,d.unlocked),lv:d.lv||{}})}}catch(e){}
   return freshMeta();
