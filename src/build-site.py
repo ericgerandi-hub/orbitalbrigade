@@ -34,4 +34,7 @@ out=f'''<!doctype html>
 open(os.path.join(OUT,'index.html'),'w',encoding='utf-8').write(out)
 for f in ['ob-data.js','ob-world.js','ob-post.js','ob-gfx.js','ob-audio.js','ob-game.js','ob-extra.js','ob-carrier.js','ob-net.js','ob-mp.js','ob-vs.js','ob-friends.js']:shutil.copy(f,os.path.join(OUT,f))
 open(os.path.join(OUT,'.nojekyll'),'w').close()
+if os.path.isdir('voice'):
+    os.makedirs(os.path.join(OUT,'voice'),exist_ok=True)
+    for f in os.listdir('voice'):shutil.copy(os.path.join('voice',f),os.path.join(OUT,'voice',f))
 print('ok',ver,len(out))

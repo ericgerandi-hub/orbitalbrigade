@@ -187,11 +187,13 @@ function boom(pos,r,dmg,o={}){
   if(r>1.6)blast(new THREE.Vector3(pos.x,.12,pos.z),o.col2||0xffd23f,r*1.25,.55,true);
   spark(at,o.col||0xffb04a,Math.min(26,6+(r*4|0)),r*4,8);
   if(r>2.4)shake=reduceMotion?0:Math.max(shake,Math.min(.8,r*.12));
+  if(typeof dstBoom==='function')dstBoom(pos,r,dmg);
 }
 function hitNear(p,r,d){
   let best=null,bd=1e9;
   for(const e of enemies){if(e.dead)continue;const dd=dist2D(e.g.position,p);if(dd<r+e.r&&dd<bd){bd=dd;best=e}}
   if(best){hit(best,d);SFX.hit(p)}
+  if(typeof dstHit==='function')dstHit(p,r,d);
 }
 function visible(e){return !e.dead&&!e.pull&&!e.under}
 // Ameisenlegion: Gegner, um den sich die Ameisen gerade zum Riesen formen, bleibt bis zum ersten Schlag für sie reserviert
@@ -1382,7 +1384,10 @@ function spawnSoldier(cls,pos,emerge,home,st,own){
 const SCLS={rifle:{range:14,rate:.32},flamer:{range:5.5,rate:.12},rpg:{range:20,rate:2.6},sniper:{range:34,rate:1.8}};
 function slotPos(i){const R0=7+((i/9)|0)*2.2,k=i%9,a=.35+(Math.PI-.7)*(k+.5)/9;return new THREE.Vector3(BASE.x+Math.cos(a)*R0,0,BASE.z+Math.sin(a)*R0)}
 function fieldPos(i,z){return new THREE.Vector3((-17+(i%8)*4.8)*FIELD_K,0,z-((i/8)|0)*2.4)}
-function patrolPos(i,t){const mid=(fieldDims().ZF+BASE.z)/2;return new THREE.Vector3((-19+(i%9)*4.7)*FIELD_K+Math.sin(t*.35+i*1.7)*2.4,0,mid+3-((i/9)|0)*3+Math.cos(t*.27+i)*1.4)}
+// Stellung: rückt mit größerem Feld leicht nach vorne, die Einheiten verteilen sich dabei breiter und tiefer
+function patrolPos(i,t){const K=FIELD_K,sp=K*(1+.25*(K-1)),X=fieldDims().X*.95,mid=(36+BASE.z)/2+3+10*(K-1);
+  const x=Math.max(-X,Math.min(X,(-19+(i%9)*4.7)*sp+Math.sin(t*.35+i*1.7)*2.4));
+  return new THREE.Vector3(x,0,mid-((i/9)|0)*3*(1+.6*(K-1))+Math.cos(t*.27+i)*1.4)}
 function nearestIn(p,list,filter){let b=null,bd=1e9;for(const e of list){if(filter&&!filter(e))continue;const d=dist2D(e.g.position,p);if(d<bd){bd=d;b=e}}return b}
 function soldierFire(so,e,dmg,range){
   so.gun.getWorldPosition(tmp);const from=tmp.clone();SFX.soldier(so.cls,so.g.position);
@@ -1631,6 +1636,7 @@ function waveDone(){
   if(isSwarm())vsOpenEvo();else openRunShop(false);
 }
 function endRun(died,title){
+  if(died&&run&&!run.tut&&typeof radio==='function'&&!(MP&&MP.vs))radio('Der Generator ist gefallen. Rückzug, Brigade!');
   if(!run||phase==='over')return;
   bankMedals();if(!run.daily){M.best=Math.max(M.best,run.wave);M.bestAll=Math.max(M.bestAll,M.best)}saveMeta();
   if(vsOn()&&MP.role==='host'&&died&&!title){MP.vsRes='s';title=vsTitle('s');died=!isSwarm();vsRecord('s')}
@@ -1693,7 +1699,7 @@ function pickLevel(c){
   else if(c.type==='up'){run.lv[lvKey(c.id,c.k)]=(run.lv[lvKey(c.id,c.k)]||0)+1;afterUpgrade(c.id,c.k,1)}
   else run.credits+=100*run.mult;
   run.pending--;
-  if(run.pending>0)showLevelUp();else{halted=false;showOv(null);last=performance.now()}
+  if(run.pending>0)showLevelUp();else{halted=false;showOv(null);last=performance.now();if(phase==='shop'&&!run.afk)openRunShop(false)}
 }
 function afterUpgrade(id,k,delta){
   if(id==='kanone'&&k==='twin')buildTurrets(1+Math.round(R('kanone','twin')));
@@ -1808,6 +1814,7 @@ function openRunShop(prep){
   $('bNext').textContent=`Welle ${run.wave} starten`;
   if(MP)mpShopLabel();
   if(!runCats().some(c=>c.id===runCat))runCat=runCats()[0].id;
+  if(run.afk){run.afkT=3;showOv(null);updHud();return}
   renderRunShop();showOv('ovRun');updHud();
 }
 function runCats(){
@@ -2106,7 +2113,7 @@ addEventListener('keydown',e=>{
     if(isPC&&mouse.p){trySupport(id,mouse.p);exitPlacing()}else enterPlacing(id);return}
 });
 document.addEventListener('visibilitychange',()=>{paused=document.hidden;last=performance.now();if(document.hidden){if(run)bankMedals();if(play()&&!halted)setPause(true)}});
-addEventListener('blur',()=>{if(play()&&!halted&&isPC)setPause(true)});
+addEventListener('blur',()=>{if(play()&&!halted&&isPC&&!(run&&run.afk))setPause(true)});
 
 /* =========================================================
    Hauptschleife
@@ -2201,7 +2208,7 @@ function update(dt,t){
   $('boss').hidden=!bossE;
   if(bossE){$('bossName').textContent=bossE.T.name+(bossE.phase?' · Phase '+(bossE.phase+1)+(bossE.under?' · eingegraben':''):'');$('bossBar').style.width=Math.max(0,bossE.hp/bossE.max*100)+'%'}
   if(phase==='fight'){
-    if(run.pending>0&&!halted&&$('ovLevel').hidden&&!guided&&!isSwarm()){showLevelUp();if(!MP)return}
+    if(run.pending>0&&!run.afk&&!halted&&$('ovLevel').hidden&&!guided&&!isSwarm()){showLevelUp();if(!MP)return}
     if(!(MP&&MP.role==='guest')&&!queue.length&&!enemies.some(e=>!e.T.nest)&&!(vsOn()&&waveT<vsWaveLen(run.wave)))waveDone();
   }else if(phase==='tut')tutCheck();
 }
@@ -2226,7 +2233,7 @@ function loop(now){
   const k=Math.round((1-timeScale)/.7*10)/10;if(k!==slowK){slowK=k;SFX.slowmo(k);cv.classList.toggle('slow',k>.3)}
   realDt=dt;if(!paused){try{update(dt*timeScale,now/1000)}catch(err){if(!loop.errT||now-loop.errT>5000){loop.errT=now;console.error(err)}}}
   if(typeof gfxRender==='function')gfxRender(dt);else renderer.render(scene,camera);
-  uiT+=dt;if(uiT>.1){uiT=0;musicTick();if(run){updHud();updSlots()}}
+  uiT+=dt;if(uiT>.1){uiT=0;musicTick();if(run&&!(typeof MIR!=='undefined'&&MIR.on)){updHud();updSlots()}}
   requestAnimationFrame(loop);
 }
 

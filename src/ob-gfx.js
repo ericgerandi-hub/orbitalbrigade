@@ -148,7 +148,7 @@ function gfxApply(lv,store){
   }else gfxDisposeComposer();
   gfxPixelRatio();gfxShadow();gfxGroundBump();gfxEnvOn(!!GFX.P);if(GFX.P)gfxEnvIntensity();for(const m of _bumpMats)gfxHullBump(m);
   gfxFlashPool(GFX.P?GFX.P.flash:0);gfxDust(GFX.P&&GFX.P.dust);gfxFlare(GFX.P?GFX.P.flare:0);
-  gfxUI();
+  dstApply();gfxUI();
 }
 function gfxUI(){
   document.querySelectorAll('.gfxseg button').forEach(b=>b.classList.toggle('on',+b.dataset.l===GFX.lv));
@@ -160,6 +160,7 @@ document.querySelectorAll('.gfxseg button').forEach(b=>b.onclick=()=>{
 
 const _gv=new THREE.Vector3();
 function gfxRender(dt){
+  dstTick(dt);if(DST.patch)dstSyncMat();
   if(!GFX.composer){renderer.render(scene,camera);return}
   GFX.t+=dt;
   if(ground.material.map!==ground.material.bumpMap)gfxGroundBump();
@@ -187,3 +188,134 @@ function gfxRender(dt){
 }
 const _fogSave=new THREE.Color(),_bgSave=new THREE.Color();
 gfxMat(hullMat,hullMatBig);
+
+/* =========================================================
+   Zerstörung (nur Hoch und Ultra)
+   - Krater: verformbares Bodenstück über dem Schlachtfeld
+   - Felsen, Kristalle und Eis zerbrechen in Trümmer
+   ========================================================= */
+const DST={patch:null,mat:null,nx:0,nz:0,x0:-80,x1:80,z0:-70,z1:125,step:1,dirty:false,run:null,map:null,frags:[],fragGeo:{}};
+const DST_U={uPatch:{value:0},uMin:{value:new THREE.Vector2()},uMax:{value:new THREE.Vector2()}};
+// Boden blendet sich dort aus, wo das verformbare Stück liegt
+ground.material.onBeforeCompile=sh=>{
+  Object.assign(sh.uniforms,DST_U);
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vDstW;').replace('#include <begin_vertex>','#include <begin_vertex>\nvDstW=(modelMatrix*vec4(transformed,1.0)).xyz;');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vDstW;uniform float uPatch;uniform vec2 uMin,uMax;')
+    .replace('void main() {','void main() {\nif(uPatch>.5&&vDstW.x>uMin.x&&vDstW.x<uMax.x&&vDstW.z>uMin.y&&vDstW.z<uMax.y)discard;');
+};
+ground.material.needsUpdate=true;
+function dstBuildPatch(step){
+  dstRemovePatch();
+  const nx=Math.round((DST.x1-DST.x0)/step)+1,nz=Math.round((DST.z1-DST.z0)/step)+1,n=nx*nz;
+  const pos=new Float32Array(n*3),uv=new Float32Array(n*2),col=new Float32Array(n*3).fill(1),idx=new Uint32Array((nx-1)*(nz-1)*6);
+  for(let j=0;j<nz;j++)for(let i=0;i<nx;i++){const k=j*nx+i,x=DST.x0+i*step,z=DST.z0+j*step;pos[k*3]=x;pos[k*3+2]=z;uv[k*2]=x/600+.5;uv[k*2+1]=-z/600+.5}
+  let t=0;for(let j=0;j<nz-1;j++)for(let i=0;i<nx-1;i++){const a=j*nx+i,b=a+1,c=a+nx,d=c+1;idx[t++]=a;idx[t++]=c;idx[t++]=b;idx[t++]=b;idx[t++]=c;idx[t++]=d}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('uv',new THREE.BufferAttribute(uv,2));g.setAttribute('color',new THREE.BufferAttribute(col,3));g.setIndex(new THREE.BufferAttribute(idx,1));
+  g.computeVertexNormals();
+  DST.mat=ground.material.clone();DST.mat.onBeforeCompile=()=>{};DST.mat.vertexColors=true;
+  const m=new THREE.Mesh(g,DST.mat);m.receiveShadow=true;m.frustumCulled=false;scene.add(m);
+  Object.assign(DST,{patch:m,nx,nz,step,dirty:false});
+  DST_U.uPatch.value=1;DST_U.uMin.value.set(DST.x0+.05,DST.z0+.05);DST_U.uMax.value.set(DST.x1-.05,DST.z1-.05);
+}
+function dstRemovePatch(){if(!DST.patch)return;scene.remove(DST.patch);DST.patch.geometry.dispose();DST.mat.dispose();DST.patch=null;DST_U.uPatch.value=0}
+function dstSyncMat(){
+  const a=ground.material,b=DST.mat;if(!b)return;
+  let nu=false;for(const k of ['map','emissiveMap','bumpMap'])if(b[k]!==a[k]){b[k]=a[k];nu=true}
+  b.color.copy(a.color);b.emissive.copy(a.emissive);b.emissiveIntensity=a.emissiveIntensity;b.bumpScale=a.bumpScale;if(nu)b.needsUpdate=true;
+}
+function dstFlatten(){
+  if(!DST.patch)return;const g=DST.patch.geometry,p=g.attributes.position.array,c=g.attributes.color.array;
+  for(let i=1;i<p.length;i+=3)p[i]=0;c.fill(1);g.attributes.position.needsUpdate=g.attributes.color.needsUpdate=true;g.computeVertexNormals();
+}
+// Krater: Mulde mit aufgeworfenem Rand und Brandfleck
+function dstCrater(x,z,r){
+  if(!DST.patch||r<2)return;
+  const ultra=GFX.lv===3,R=Math.min(6.5,r*1.0),depth=Math.min(ultra?1.35:.75,r*(ultra?.36:.2)),g=DST.patch.geometry,p=g.attributes.position.array,c=g.attributes.color.array,s=DST.step;
+  x=Math.max(DST.x0+R*1.5,Math.min(DST.x1-R*1.5,x));z=Math.max(DST.z0+R*1.5,Math.min(DST.z1-R*1.5,z));
+  const i0=Math.max(1,Math.floor((x-R*1.5-DST.x0)/s)),i1=Math.min(DST.nx-2,Math.ceil((x+R*1.5-DST.x0)/s)),j0=Math.max(1,Math.floor((z-R*1.5-DST.z0)/s)),j1=Math.min(DST.nz-2,Math.ceil((z+R*1.5-DST.z0)/s));
+  for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){
+    const k=j*DST.nx+i,vx=DST.x0+i*s,vz=DST.z0+j*s,d=Math.hypot(vx-x,vz-z)/R;if(d>=1.5)continue;
+    let dy=0;
+    if(d<1)dy=-depth*Math.pow(1-d*d,1.1)+depth*.4*Math.max(0,d-.72)/.28;
+    else dy=depth*.42*Math.pow(1-(d-1)/.5,2);
+    dy*=.85+Math.random()*.3;
+    p[k*3+1]=Math.max(-1.8,Math.min(.7,p[k*3+1]+dy));
+    if(d<1.2){const sc=1-(ultra?.62:.45)*Math.pow(Math.max(0,1-d/1.2),.6);for(let q=0;q<3;q++)c[k*3+q]=Math.max(.2,c[k*3+q]*sc*(q===2?.94:1))}
+  }
+  DST.dirty=true;
+  dstClods(x,z,R,ultra);
+}
+// Erdbrocken, die aus dem Krater geschleudert werden
+const dstClodGeo=new THREE.DodecahedronGeometry(1,0);let dstClodMat=null;
+function dstClods(x,z,R,ultra){
+  if(!dstClodMat||dstClodMat.userData.map!==MAP){dstClodMat=new THREE.MeshStandardMaterial({color:new THREE.Color(MAP.rock).lerp(new THREE.Color(MAP.base),.5),roughness:1,flatShading:true});dstClodMat.userData.map=MAP}
+  const n=ultra?10:5;
+  for(let i=0;i<n&&DST.frags.length<(ultra?520:260);i++){
+    const a=rnd()*6.283,sp=3+rnd()*6,s=.12+rnd()*(ultra?.32:.22),f=new THREE.Mesh(dstClodGeo,dstClodMat);
+    f.scale.set(s,s*(.6+rnd()*.5),s);f.position.set(x+Math.cos(a)*R*.3,.3,z+Math.sin(a)*R*.3);f.castShadow=ultra;scene.add(f);
+    DST.frags.push({m:f,v:new THREE.Vector3(Math.cos(a)*sp,5+rnd()*7,Math.sin(a)*sp),w:new THREE.Vector3((rnd()-.5)*12,(rnd()-.5)*12,(rnd()-.5)*12),t:0,life:ultra?18+rnd()*8:6+rnd()*3,h:s*.5,rest:false});
+  }
+}
+function dstHeight(x,z){
+  if(!DST.patch||x<=DST.x0||x>=DST.x1||z<=DST.z0||z>=DST.z1)return 0;
+  const i=Math.round((x-DST.x0)/DST.step),j=Math.round((z-DST.z0)/DST.step);return DST.patch.geometry.attributes.position.array[(j*DST.nx+i)*3+1];
+}
+
+/* Trümmer: zerbrochene Felsen und Kristalle */
+function dstDecoInit(){
+  for(const o of decoGroup.children){
+    const isPool=o.isMesh&&o.geometry&&o.geometry.type==='CircleGeometry';if(isPool)continue;
+    const s=o.scale.x;o.userData.dhp=18+s*s*16;o.userData.dr=(o.isMesh?1:1.1)*s;
+  }
+  DST.map=MAP;
+}
+function dstShatter(o){
+  decoGroup.remove(o);
+  const ultra=GFX.lv===3,meshes=[];o.updateMatrixWorld(true);o.traverse(m=>{if(m.isMesh)meshes.push(m)});
+  const c=o.position.clone();
+  for(const m of meshes){
+    const wp=new THREE.Vector3(),ws=new THREE.Vector3(),wq=new THREE.Quaternion();m.matrixWorld.decompose(wp,wq,ws);
+    const n=(ultra?9:5)+(rnd()*3|0);
+    for(let i=0;i<n&&DST.frags.length<(ultra?520:260);i++){
+      const f=new THREE.Mesh(m.geometry,m.material),k=.22+rnd()*.28;f.scale.set(ws.x*k,ws.y*k*(.5+rnd()*.6),ws.z*k);
+      f.position.set(wp.x+(rnd()-.5)*ws.x*.8,wp.y*(.4+rnd()*.8),wp.z+(rnd()-.5)*ws.z*.8);f.rotation.set(rnd()*6,rnd()*6,rnd()*6);f.castShadow=true;scene.add(f);
+      const dir=new THREE.Vector3(f.position.x-c.x,0,f.position.z-c.z).normalize();
+      DST.frags.push({m:f,v:new THREE.Vector3(dir.x*(2+rnd()*5),3+rnd()*6,dir.z*(2+rnd()*5)),w:new THREE.Vector3((rnd()-.5)*9,(rnd()-.5)*9,(rnd()-.5)*9),t:0,life:ultra?14+rnd()*6:5+rnd()*2,h:Math.max(.05,ws.y*k*.3),rest:false});
+    }
+  }
+  const crystal=MAP.deco==='crystal'||MAP.deco==='ice';
+  spark(c.clone().setY(1),crystal?(MAP.deco==='ice'?0xcfe8ff:0xc9a8ff):0x8a7a6a,ultra?26:14,9,7);
+  if(typeof SFX!=='undefined'){if(crystal){SFX.boom&&SFX.boom(1.2,c);SFX.pickup&&0}else SFX.boom&&SFX.boom(2,c)}
+}
+function dstDamage(p,r,dmg){
+  if(GFX.lv<2||!decoGroup.children.length)return;
+  if(DST.map!==MAP)dstDecoInit();
+  const list=decoGroup.children.slice();
+  for(const o of list){const hp=o.userData.dhp;if(hp==null)continue;
+    const d=Math.hypot(o.position.x-p.x,o.position.z-p.z);if(d>r+o.userData.dr)continue;
+    o.userData.dhp-=dmg*(d<o.userData.dr?1:.6);
+    if(o.userData.dhp<=0)dstShatter(o);else if(!o.userData.wob){o.userData.wob=.25}}
+}
+// Einschlag einer Explosion
+function dstBoom(p,r,dmg){if(GFX.lv<2)return;dstDamage(p,r,Math.max(dmg,r*12));if(r>=2.2)dstCrater(p.x,p.z,r)}
+function dstHit(p,r,dmg){if(GFX.lv<2)return;dstDamage(p,Math.max(.6,r),dmg)}
+function dstTick(dt){
+  // neuer Run oder neue Karte: Boden glätten
+  const rr=typeof run!=='undefined'?run:null;
+  if(DST.patch&&(rr!==DST.run)){DST.run=rr;dstFlatten();for(const f of DST.frags)scene.remove(f.m);DST.frags=[]}
+  if(DST.map!==MAP&&GFX.lv>=2){dstDecoInit();if(DST.patch)dstFlatten()}
+  if(DST.dirty&&DST.patch){DST.dirty=false;const g=DST.patch.geometry;g.attributes.position.needsUpdate=g.attributes.color.needsUpdate=true;g.computeVertexNormals()}
+  for(const o of decoGroup.children)if(o.userData.wob>0){o.userData.wob-=dt;o.rotation.z=Math.sin(o.userData.wob*60)*.05*o.userData.wob*4;if(o.userData.wob<=0)o.rotation.z=0}
+  for(const f of DST.frags){
+    f.t+=dt;const m=f.m;
+    if(!f.rest){f.v.y-=22*dt;m.position.addScaledVector(f.v,dt);m.rotation.x+=f.w.x*dt;m.rotation.y+=f.w.y*dt;m.rotation.z+=f.w.z*dt;
+      const gy=dstHeight(m.position.x,m.position.z)+f.h;
+      if(m.position.y<gy){m.position.y=gy;f.v.y*=-.32;f.v.x*=.55;f.v.z*=.55;f.w.multiplyScalar(.5);if(Math.abs(f.v.y)<1.2&&Math.hypot(f.v.x,f.v.z)<.6)f.rest=true}}
+    if(f.t>f.life){const k=Math.min(1,(f.t-f.life)/1.2);m.position.y-=dt*.6;if(k>=1)f.dead=true}
+  }
+  if(DST.frags.some(f=>f.dead))DST.frags=DST.frags.filter(f=>{if(!f.dead)return true;scene.remove(f.m);return false});
+}
+function dstApply(){
+  if(GFX.lv>=2){const step=GFX.lv===3?1:1.6;if(!DST.patch||DST.step!==step)dstBuildPatch(step);dstSyncMat();dstDecoInit()}
+  else{dstRemovePatch();for(const f of DST.frags)scene.remove(f.m);DST.frags=[]}
+}

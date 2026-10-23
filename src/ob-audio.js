@@ -327,9 +327,25 @@ const SFX=(()=>{
     else T={pad:1,bass:.8,kick:0,hat:0,snare:0,arp:.7,lead:.9,perc:.6,boss:0};
     const now=ctx.currentTime;for(const k in T)mus.L[k].gain.setTargetAtTime(T[k],now,mode==='boss'?.3:.9);
   }
+  /* ---------- Eingesprochene Funksprüche ---------- */
+  const vcache={};let vSrc=null;
+  function vload(url){if(vcache[url])return vcache[url];return vcache[url]=fetch(url).then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()}).then(a=>new Promise((res,rej)=>ctx.decodeAudioData(a,res,rej))).catch(()=>{delete vcache[url];return null})}
+  function voicePreload(urls){if(!init())return;for(const u of urls)vload(u)}
+  function speak(url,cb){
+    if(!init()||muted){if(cb)cb(0);return}
+    vload(url).then(buf=>{
+      if(!buf||!ok()){if(cb)cb(0);return}
+      if(vSrc)try{vSrc.stop()}catch(e){}
+      const t=ctx.currentTime+.2,s=ctx.createBufferSource(),g=ctx.createGain();g.gain.value=1.25;s.buffer=buf;s.connect(g);g.connect(master);s.start(t);vSrc=s;
+      // Musik wird leiser, solange das Kommando spricht
+      if(mus.bus){const mg=mus.bus.gain;mg.cancelScheduledValues(ctx.currentTime);mg.setTargetAtTime(musGain()*.35,ctx.currentTime,.08);mg.setTargetAtTime(musGain(),t+buf.duration,.35)}
+      tone('square',1100,1100,.05,.03,null,{delay:.2+buf.duration+.05,lp:2500});
+      if(cb)cb(buf.duration+.2);
+    });
+  }
   function setMusicVolume(v){musicVol=Math.max(0,Math.min(100,Math.round(v)));ls.set('orbitalbrigade-music',String(musicVol));if(mus.bus)mus.bus.gain.setTargetAtTime(musGain(),ctx.currentTime,.05)}
   function slowmo(k){if(!mus.lp)return;mus.lp.frequency.setTargetAtTime(700*Math.pow(18000/700,1-k),ctx.currentTime,.12)}
-  return{radio,mark,saw,rover,guided,dig,grab,meteor,alarm,blackout,pickup,ants,smash,slowSwoosh,music,setMusicVolume,get musicVolume(){return musicVol},slowmo,jet2,mg,unlock,setMuted,setVolume,get volume(){return vol},get muted(){return muted},weapon,boom,hit,death,roar,baseHit,overheat,ability,whistle,jet,laser,place,podFall,podOpen,thump,sentry,mortar,soldier,spit,click,buy,unlockJingle,deny,levelUp,horn,waveClear,gameOver,ambient};
+  return{speak,voicePreload,radio,mark,saw,rover,guided,dig,grab,meteor,alarm,blackout,pickup,ants,smash,slowSwoosh,music,setMusicVolume,get musicVolume(){return musicVol},slowmo,jet2,mg,unlock,setMuted,setVolume,get volume(){return vol},get muted(){return muted},weapon,boom,hit,death,roar,baseHit,overheat,ability,whistle,jet,laser,place,podFall,podOpen,thump,sentry,mortar,soldier,spit,click,buy,unlockJingle,deny,levelUp,horn,waveClear,gameOver,ambient};
 })();
 addEventListener('pointerdown',()=>SFX.unlock(),{capture:true});
 addEventListener('keydown',()=>SFX.unlock(),{capture:true});
