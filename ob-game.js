@@ -92,6 +92,7 @@ function applyDevice(dev,store){
   if(sun.shadow.mapSize.x!==ms){sun.shadow.mapSize.set(ms,ms);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}
   if(!isPC)mouse.p=null;
   resize();
+  if(typeof gfxApply==='function')gfxApply(GFX.lv,false);
   if(run)buildSlots();
 }
 $('dPC').onclick=()=>{applyDevice('pc',true);toMenu()};
@@ -2218,7 +2219,7 @@ function loop(now){
   timeScale+=(want-timeScale)*Math.min(1,dt*10);if(Math.abs(want-timeScale)<.01)timeScale=want;
   const k=Math.round((1-timeScale)/.7*10)/10;if(k!==slowK){slowK=k;SFX.slowmo(k);cv.classList.toggle('slow',k>.3)}
   realDt=dt;if(!paused){try{update(dt*timeScale,now/1000)}catch(err){if(!loop.errT||now-loop.errT>5000){loop.errT=now;console.error(err)}}}
-  renderer.render(scene,camera);
+  if(typeof gfxRender==='function')gfxRender(dt);else renderer.render(scene,camera);
   uiT+=dt;if(uiT>.1){uiT=0;musicTick();if(run){updHud();updSlots()}}
   requestAnimationFrame(loop);
 }

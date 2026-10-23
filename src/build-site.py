@@ -10,7 +10,7 @@ body=src.replace(title,'').replace(style,'')
 body=re.sub(r'<meta name="claude:viewport-fit-sides"[^>]*>\n?','',body)
 links=''.join(re.findall(r'<link[^>]*>\n?',body))
 body=re.sub(r'<link[^>]*>\n?','',body)
-for f in ['ob-data.js','ob-world.js','ob-audio.js','ob-game.js','ob-extra.js','ob-carrier.js']:
+for f in ['ob-data.js','ob-world.js','ob-post.js','ob-gfx.js','ob-audio.js','ob-game.js','ob-extra.js','ob-carrier.js']:
     body=body.replace(f'src="{f}"',f'src="{f}?v={ver}"')
 body=body.replace('<script src="ob-carrier.js?v='+ver+'" charset="utf-8"></script>',
   '<script src="ob-carrier.js?v='+ver+'" charset="utf-8"></script>\n<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>\n<script src="ob-net.js?v='+ver+'" charset="utf-8"></script>\n<script src="ob-mp.js?v='+ver+'" charset="utf-8"></script>\n<script src="ob-vs.js?v='+ver+'" charset="utf-8"></script>\n<script src="ob-friends.js?v='+ver+'" charset="utf-8"></script>')
@@ -32,6 +32,6 @@ out=f'''<!doctype html>
 </html>
 '''
 open(os.path.join(OUT,'index.html'),'w',encoding='utf-8').write(out)
-for f in ['ob-data.js','ob-world.js','ob-audio.js','ob-game.js','ob-extra.js','ob-carrier.js','ob-net.js','ob-mp.js','ob-vs.js','ob-friends.js']:shutil.copy(f,os.path.join(OUT,f))
+for f in ['ob-data.js','ob-world.js','ob-post.js','ob-gfx.js','ob-audio.js','ob-game.js','ob-extra.js','ob-carrier.js','ob-net.js','ob-mp.js','ob-vs.js','ob-friends.js']:shutil.copy(f,os.path.join(OUT,f))
 open(os.path.join(OUT,'.nojekyll'),'w').close()
 print('ok',ver,len(out))

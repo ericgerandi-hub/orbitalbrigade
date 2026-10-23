@@ -30,6 +30,7 @@ function resize(){
   renderer.setSize(w,h,false);
   camera.aspect=w/h;camera.fov=camera.aspect<0.8?62:50;
   camera.updateProjectionMatrix();
+  if(typeof gfxResize==='function')gfxResize();
 }
 new ResizeObserver(resize).observe(cv.parentElement);
 resize();
@@ -353,6 +354,7 @@ function shipMatsFor(S,paint){
   const big=new THREE.MeshStandardMaterial({map:hullTexBig,color:tint,roughness:.62,metalness:.55});
   const acc=new THREE.MeshStandardMaterial({color:S.glow,emissive:S.glow,emissiveIntensity:.35,roughness:.4});
   const line=new THREE.MeshBasicMaterial({color:S.glow});
+  if(typeof gfxMat==='function')gfxMat(hull,big);
   return shipMats[key]={hull,big,acc,line};
 }
 function hullFrom(g,M,sx,sz,depth,y){
@@ -911,7 +913,8 @@ const partGeo=new THREE.BoxGeometry(0.28,0.28,0.28);
 const pmCache={};const pmat=c=>pmCache[c]||(pmCache[c]=new THREE.MeshBasicMaterial({color:c}));
 let parts=[];const partPool=[];
 function spark(pos,col,n,sp,up=7){
-  for(let i=0;i<n&&parts.length<500;i++){
+  const pm=typeof GFX!=='undefined'?GFX.pm:1;if(pm!==1)n=Math.round(n*pm);
+  for(let i=0;i<n&&parts.length<500*pm;i++){
     const m=partPool.pop()||new THREE.Mesh(partGeo);m.material=pmat(col);m.position.copy(pos);m.visible=true;
     m.scale.setScalar(0.6+rnd()*1.2);scene.add(m);
     parts.push({m,v:new THREE.Vector3((rnd()-.5)*sp,rnd()*up,(rnd()-.5)*sp),life:0.4+rnd()*0.5});
@@ -922,6 +925,7 @@ const sphereGeo=new THREE.SphereGeometry(1,20,12), ringGeo=new THREE.RingGeometr
 function blast(pos,col,r,dur=0.45,ring=false){
   const m=new THREE.Mesh(ring?ringGeo:sphereGeo,new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.7,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide}));
   m.position.copy(pos);if(ring)m.rotation.x=-Math.PI/2;scene.add(m);fx.push({m,r,life:dur,max:dur,grow:true});
+  if(!ring&&typeof gfxFlash==='function')gfxFlash(pos,col,r);
 }
 function fadeMesh(m,dur){scene.add(m);fx.push({m,life:dur,max:dur,o0:m.material.opacity})}
 function updateFx(dt){

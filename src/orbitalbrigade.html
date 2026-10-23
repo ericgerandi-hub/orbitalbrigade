@@ -146,6 +146,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 .hangar .hg.rearm b{color:#8a90a0}
 .hangar .hg.lock{opacity:.45;width:auto;padding:0 3px;grid-auto-flow:column;gap:2px}.hangar .hg.lock small{font-size:9px;color:#9aa3b8}
 .mver{font-size:11px;color:#6a7288;margin:4px 0 0}
+.gfxrow .seg{flex:1}.gfxseg button{padding:6px 4px;font-size:12px}
 .radio{position:absolute;z-index:4;left:10px;bottom:120px;max-width:min(360px,calc(100% - 110px));background:rgba(14,30,22,.92);border:1px solid #4fc07a;border-left:4px solid #4fc07a;border-radius:4px;padding:6px 10px;display:flex;flex-direction:column;gap:2px;font-size:13px;pointer-events:none}
 .radio .lbl{color:#7cf0a8}.radio.in{animation:rin .3s ease-out}
 @keyframes rin{0%{opacity:0;transform:translateX(-20px)}100%{opacity:1;transform:none}}
@@ -355,6 +356,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
       <div class="volrow"><input type="range" id="volRange" min="0" max="100" step="10"><span class="volval" id="volVal">80 %</span></div>
       <label class="lbl" for="musRange">Musik</label>
       <div class="volrow"><input type="range" id="musRange" min="0" max="100" step="10"><span class="volval" id="musVal">60 %</span></div>
+      <span class="lbl">Grafik</span>
+      <div class="seg gfxseg"><button data-l="1">Normal</button><button data-l="2">Hoch</button><button data-l="3">Ultra</button></div>
     </div>
   </header>
 
@@ -454,6 +457,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
         <button class="btn ghost" id="bFullMenu">Vollbild</button>
         <div class="volrow menuvol"><label class="lbl" for="volMenu">Lautstärke</label><input type="range" id="volMenu" min="0" max="100" step="10"><span class="volval" id="volMenuVal">80 %</span></div>
         <div class="volrow menuvol"><label class="lbl" for="musMenu">Musik</label><input type="range" id="musMenu" min="0" max="100" step="10"><span class="volval" id="musMenuVal">60 %</span></div>
+        <div class="volrow menuvol gfxrow"><span class="lbl">Grafik</span><div class="seg gfxseg"><button data-l="1">Normal</button><button data-l="2">Hoch</button><button data-l="3">Ultra</button></div></div>
       </div>
       <p id="mBest">Noch kein Rekord</p>
       <p id="mRebirth" hidden></p>
@@ -676,6 +680,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="ob-data.js" charset="utf-8"></script>
 <script src="ob-world.js" charset="utf-8"></script>
+<script src="ob-post.js" charset="utf-8"></script>
+<script src="ob-gfx.js" charset="utf-8"></script>
 <script src="ob-audio.js" charset="utf-8"></script>
 <script src="ob-game.js" charset="utf-8"></script>
 <script src="ob-extra.js" charset="utf-8"></script>
