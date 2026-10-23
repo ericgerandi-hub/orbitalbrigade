@@ -190,7 +190,7 @@ function hitNear(p,r,d){
   for(const e of enemies){if(e.dead)continue;const dd=dist2D(e.g.position,p);if(dd<r+e.r&&dd<bd){bd=dd;best=e}}
   if(best){hit(best,d);SFX.hit(p)}
 }
-function visible(e){return !e.dead&&e.onScreen&&!e.pull&&!e.under}
+function visible(e){return !e.dead&&!e.pull&&!e.under}
 const frustum=new THREE.Frustum(),projM=new THREE.Matrix4(),_vp=new THREE.Vector3();
 function updateOnScreen(){
   camera.updateMatrixWorld();projM.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);frustum.setFromProjectionMatrix(projM);
@@ -1158,7 +1158,7 @@ function spawnRover(pos,st,emerge){
 function roverTarget(p){
   let best=null,bs=-1e18;
   for(const e of enemies){
-    if(e.dead||e.pull||e.rise>0)continue;if(!e.onScreen&&!e.T.nest)continue;
+    if(e.dead||e.pull||e.rise>0||e.under)continue;
     const sc=(e.T.nest?1e9:0)+e.hp-dist2D(p,e.g.position)*.5;if(sc>bs){bs=sc;best=e}
   }
   return best;
@@ -1173,7 +1173,7 @@ function updateRovers(dt,t){
     if(r.emerge){const em=r.emerge;em.t+=dt;const k=Math.min(1,em.t/em.dur);p.lerpVectors(em.from,em.to,k);p.y=em.from.y*(1-k);
       r.g.rotation.y=Math.atan2(em.to.x-em.from.x,em.to.z-em.from.z);r.face=r.g.rotation.y;if(k>=1){r.emerge=null;p.y=0}continue}
     if(r.hp<=0){roverBoom(r);continue}
-    if(!r.tg||r.tg.dead||r.tg.pull||(!r.tg.onScreen&&!r.tg.T.nest)||rnd()<dt*.5)r.tg=roverTarget(p);
+    if(!r.tg||r.tg.dead||r.tg.pull||r.tg.under||rnd()<dt*.5)r.tg=roverTarget(p);
     const e=r.tg;r.light.visible=Math.sin(t*(e?18:5))>0;
     if(!e){r.body.position.y=0;continue}
     const dx=e.g.position.x-p.x,dz=e.g.position.z-p.z,d=Math.hypot(dx,dz);
