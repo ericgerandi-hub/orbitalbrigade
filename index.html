@@ -100,6 +100,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 .place button{background:none;border:1px solid var(--line);border-radius:3px;padding:5px 9px;cursor:pointer;flex:none}
 .toast{position:absolute;z-index:20;left:8px;right:92px;top:58px;margin:0 auto;width:max-content;max-width:calc(100% - 100px);background:rgba(24,29,44,.95);border:1px solid var(--line);border-radius:4px;padding:6px 10px;font-size:13px;pointer-events:none;opacity:0;transition:opacity .25s}
 .toast.show{opacity:1}
+.slot .ammo{position:absolute;left:3px;right:3px;bottom:8px;height:2px;background:var(--line);border-radius:2px;overflow:hidden;z-index:1}
+.slot .ammo i{display:block;height:100%;width:100%;background:var(--yellow)}
+.slot.empty{border-color:#ff6a3d}.slot.empty .sk{color:#ff6a3d}
+.slot.low{animation:ammoPulse 1s ease-in-out infinite}
+@keyframes ammoPulse{50%{border-color:var(--yellow);box-shadow:0 0 0 2px rgba(255,210,63,.45)}}
+@media (prefers-reduced-motion:reduce){.slot.low{animation:none;border-color:var(--yellow)}}
 .mpfeed{font-size:12px;color:var(--muted);line-height:1.35;padding:2px 2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mpfeed b{color:var(--cyan);font-weight:600}.mpfeed .new{color:var(--ink);transition:color 2s}
 .ping{position:absolute;z-index:4;left:10px;top:48px;display:flex;align-items:center;gap:6px;background:rgba(24,29,44,.85);border:1px solid var(--line);border-radius:4px;padding:3px 8px;font-size:12px;font-variant-numeric:tabular-nums;pointer-events:none}
@@ -403,6 +409,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
       <div class="keys">
         <span class="kbd">Linke Maustaste</span><span>Ausgewählte Waffe feuern, halten für Dauerfeuer</span>
         <span class="kbd">1 – 7</span><span>Waffe wechseln</span>
+        <span class="kbd">Leertaste</span><span>Munitionsnachschub für die Bordkanone anfordern</span>
         <span class="kbd">Mausrad</span><span>Hinein- und herauszoomen, beim Hineinzoomen auf den Mauszeiger</span>
         <span class="kbd">Q W E R T Z U</span><span>Fähigkeiten (U: Lenkrakete, Maus lenkt, Maustaste oder Leertaste gibt Schub, Rechtsklick zündet)</span>
         <span class="kbd">A S D F G H J L I N</span><span>Unterstützung am Mauszeiger platzieren (über die Knöpfe rechts mit Zeitlupe)</span>
@@ -484,12 +491,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="ob-data.js?v=2026-10-23b" charset="utf-8"></script>
-<script src="ob-world.js?v=2026-10-23b" charset="utf-8"></script>
-<script src="ob-audio.js?v=2026-10-23b" charset="utf-8"></script>
-<script src="ob-game.js?v=2026-10-23b" charset="utf-8"></script>
+<script src="ob-data.js?v=2026-10-23c" charset="utf-8"></script>
+<script src="ob-world.js?v=2026-10-23c" charset="utf-8"></script>
+<script src="ob-audio.js?v=2026-10-23c" charset="utf-8"></script>
+<script src="ob-game.js?v=2026-10-23c" charset="utf-8"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="ob-net.js?v=2026-10-23b" charset="utf-8"></script>
-<script src="ob-mp.js?v=2026-10-23b" charset="utf-8"></script>
+<script src="ob-net.js?v=2026-10-23c" charset="utf-8"></script>
+<script src="ob-mp.js?v=2026-10-23c" charset="utf-8"></script>
 </body>
 </html>

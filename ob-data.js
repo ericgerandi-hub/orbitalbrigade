@@ -12,6 +12,7 @@ const STAT={
   rate:   {n:'Feuerrate',m:'mul',s:.10,rMax:10,mMax:8,rc:35,mc:45},
   cool:   {n:'Kühlung',m:'mul',s:.15,rMax:10,mMax:8,rc:30,mc:40,d:'Weniger Hitze pro Schuss, schnelleres Abkühlen'},
   twin:   {n:'Zusatzrohre',m:'add',s:1,rMax:3,mMax:2,rc:90,mc:140,d:'Ein weiteres Geschützrohr feuert mit'},
+  ammo:   {n:'Magazin',m:'mul',s:.2,rMax:8,mMax:6,rc:35,mc:45,d:'Mehr Schuss, bevor Nachschub nötig ist'},
   count:  {n:'Anzahl',m:'add',s:1,rMax:4,mMax:3,rc:70,mc:110},
   fire:   {n:'Brandschaden',m:'add',s:8,rMax:8,mMax:5,rc:45,mc:60,d:'Getroffene Gegner brennen nach',u:' pro s'},
   aoe:    {n:'Sprengradius',m:'mul',s:.12,rMax:8,mMax:6,rc:40,mc:50},
@@ -76,7 +77,7 @@ function def(kind,id,o){ITEMS[id]=Object.assign({id,kind},o)}
 /* ---- Schiffswaffen: bekommt man über Level-ups, überhitzen ---- */
 def('weapon','kanone',{name:'Bordkanone',short:'Kanone',unlock:0,
   desc:'Schnelle Salven mit wenig Hitze. Dein Standardgeschütz.',
-  base:{dmg:12,rate:5,heat:5,cool:35,aoe:.9,twin:0},stats:['dmg','rate','cool','twin']});
+  base:{dmg:12,rate:5,heat:5,cool:35,aoe:.9,twin:0,ammo:300},stats:['dmg','rate','cool','twin','ammo']});
 def('weapon','raketen',{name:'Raketenwerfer',short:'Raketen',unlock:150,
   desc:'Salve zielsuchender Raketen mit Flächenschaden.',
   base:{dmg:40,rate:.8,heat:30,cool:20,aoe:3,count:3,fire:0},stats:['dmg','rate','cool','count','fire']});

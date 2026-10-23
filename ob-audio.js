@@ -157,20 +157,21 @@ const SFX=(()=>{
   function startAmbient(){if(amb.wind||!ctx)return;amb.wind=loopNoise('lowpass',320);amb.rain=loopNoise('bandpass',3200,.9);amb.rain2=loopNoise('bandpass',700,.6)}
   let natT=2,thunderT=8,dropT=0;
   function ambient(dt,e){
+    const rr=e.snow?0:e.rain;
     if(!amb.wind||!ctx)return;const t=ctx.currentTime;
-    amb.wind.gain.setTargetAtTime(.05+.05*e.fog,t,.5);
-    amb.rain.gain.setTargetAtTime(.022*e.rain,t,.8);amb.rain2.gain.setTargetAtTime(.012*e.rain,t,.8);
+    amb.wind.gain.setTargetAtTime(.05+.05*e.fog+(e.snow?.07*e.rain:0),t,.5);
+    amb.rain.gain.setTargetAtTime(.022*rr,t,.8);amb.rain2.gain.setTargetAtTime(.012*rr,t,.8);
     if(!ok())return;
-    if(e.rain>.6){thunderT-=dt;if(thunderT<=0){thunderT=10+Math.random()*18;noise(3,.45,'lowpass',260,60,null,{atk:.4,rate:.6})}}
+    if(rr>.6){thunderT-=dt;if(thunderT<=0){thunderT=10+Math.random()*18;noise(3,.45,'lowpass',260,60,null,{atk:.4,rate:.6})}}
     // einzelne Tropfen: kurze, helle Plinks in zufälligem Abstand
-    if(e.rain>.05){dropT-=dt;while(dropT<=0){dropT+=.03+Math.random()*.16/e.rain;
-      const f=1600+Math.random()*2800;tone('sine',f,f*.55,.035+Math.random()*.03,.018+.02*e.rain*Math.random(),{x:(Math.random()-.5)*50,z:Math.random()*40-10},{atk:.002});
-      if(Math.random()<.3)noise(.02,.012*e.rain,'highpass',5000,3000,null)}}
+    if(rr>.05){dropT-=dt;while(dropT<=0){dropT+=.03+Math.random()*.16/rr;
+      const f=1600+Math.random()*2800;tone('sine',f,f*.55,.035+Math.random()*.03,.018+.02*rr*Math.random(),{x:(Math.random()-.5)*50,z:Math.random()*40-10},{atk:.002});
+      if(Math.random()<.3)noise(.02,.012*rr,'highpass',5000,3000,null)}}
     natT-=dt;
     if(natT<=0&&e.terra>.25){
       natT=1.5+Math.random()*4;
       if(e.day<.5){for(let i=0;i<3;i++)tone('sine',4300,4250,.04,.03,null,{delay:i*.09})}
-      else if(e.rain<.3){const f=2200+Math.random()*1200;tone('sine',f,f*1.35,.12,.035,null);tone('sine',f*1.3,f*.9,.1,.03,null,{delay:.13})}
+      else if(rr<.3){const f=2200+Math.random()*1200;tone('sine',f,f*1.35,.12,.035,null);tone('sine',f*1.3,f*.9,.1,.03,null,{delay:.13})}
     }
   }
 

@@ -54,23 +54,44 @@ function hullDraw(g,W,H){
 }
 const hullTex=canvasTex(512,512,hullDraw);
 const hullTexBig=canvasTex(512,512,hullDraw,0.11);
-const groundTex=canvasTex(512,512,(g,W,H)=>{
-  g.fillStyle='#6a4634';g.fillRect(0,0,W,H);
-  for(let i=0;i<900;i++){const x=rnd()*W,y=rnd()*H,r=2+rnd()*22,c=`rgba(${(80+rnd()*50)|0},${(48+rnd()*30)|0},${(34+rnd()*22)|0},.35)`;
+/* ---------- Karten: zufällig je Run ---------- */
+const MAPS=[
+  {id:'kessel',name:'Kessel-4',sub:'Rote Wüste',base:'#6a4634',blob:[80,48,34,50,30,22],crater:'40,24,18',rim:'150,110,85',crack:'30,18,12',fog:0x4a3346,hemiG:0x3a2418,rock:0x5a3d2e,deco:'rocks',
+    sky:['#04060f','#0d1230','#3a2a44','#5a3a3e','#20140f'],rainCol:0xbfd4ff,rainFall:46,rainName:'Regen zieht auf'},
+  {id:'boreas',name:'Boreas',sub:'Eiswelt',base:'#93a9bb',blob:[176,196,212,40,36,30],crater:'92,112,134',rim:'225,236,245',crack:'70,92,118',fog:0x7d92aa,hemiG:0x52627a,rock:0xbfdcef,deco:'ice',
+    sky:['#050a18','#13254a','#5d7898','#9fb4c8','#5a6a7a'],rainCol:0xffffff,rainFall:9,rainName:'Schneesturm zieht auf',snow:true},
+  {id:'pyra',name:'Pyra',sub:'Vulkanwelt',base:'#2b2321',blob:[56,44,40,24,18,16],crater:'16,10,8',rim:'90,60,46',crack:'lava',fog:0x5a2216,hemiG:0x3a1208,rock:0x1d1918,deco:'lava',
+    sky:['#060305','#1e0b0a','#5a1e12','#8a3a1a','#2a0e08'],rainCol:0x9a8f88,rainFall:14,rainName:'Ascheregen zieht auf',ash:true},
+  {id:'lumen',name:'Lumen',sub:'Kristallsteppe',base:'#3c385a',blob:[72,64,104,34,30,46],crater:'26,22,44',rim:'140,120,200',crack:'110,80,190',fog:0x3a3468,hemiG:0x2a2048,rock:0x8f6bff,deco:'crystal',
+    sky:['#04030c','#140e34','#3a2a6a','#5a4a8a','#1a1430'],rainCol:0xd6c8ff,rainFall:30,rainName:'Sternenregen zieht auf'},
+];
+let MAP=MAPS[0],mapIdx=0;
+function drawGround(M){return canvasTex(512,512,(g,W,H)=>{
+  g.fillStyle=M.base;g.fillRect(0,0,W,H);const b=M.blob;
+  for(let i=0;i<900;i++){const x=rnd()*W,y=rnd()*H,r=2+rnd()*22,c=`rgba(${(b[0]+rnd()*b[3])|0},${(b[1]+rnd()*b[4])|0},${(b[2]+rnd()*b[5])|0},.35)`;
     tiled(W,H,(ox,oy)=>{if(x+ox+r<0||x+ox-r>W||y+oy+r<0||y+oy-r>H)return;g.fillStyle=c;g.beginPath();g.arc(x+ox,y+oy,r,0,6.28);g.fill()})}
   for(let i=0;i<14;i++){const x0=rnd()*W,y0=rnd()*H,r=8+rnd()*30;
     tiled(W,H,(ox,oy)=>{const x=x0+ox,y=y0+oy;if(x+r<0||x-r>W||y+r<0||y-r>H)return;
-      const gr=g.createRadialGradient(x,y,r*0.2,x,y,r);gr.addColorStop(0,'rgba(40,24,18,.55)');gr.addColorStop(.8,'rgba(40,24,18,.2)');gr.addColorStop(.92,'rgba(150,110,85,.4)');gr.addColorStop(1,'rgba(150,110,85,0)');
+      const gr=g.createRadialGradient(x,y,r*0.2,x,y,r);gr.addColorStop(0,`rgba(${M.crater},.55)`);gr.addColorStop(.8,`rgba(${M.crater},.2)`);gr.addColorStop(.92,`rgba(${M.rim},.4)`);gr.addColorStop(1,`rgba(${M.rim},0)`);
       g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,6.28);g.fill()})}
-  g.strokeStyle='rgba(30,18,12,.35)';g.lineWidth=1;
-  for(let i=0;i<40;i++){const pts=[[rnd()*W,rnd()*H]];for(let k=0;k<5;k++){const q=pts[pts.length-1];pts.push([q[0]+(rnd()-.5)*40,q[1]+(rnd()-.5)*40])}
-    tiled(W,H,(ox,oy)=>{g.beginPath();pts.forEach((q,k)=>k?g.lineTo(q[0]+ox,q[1]+oy):g.moveTo(q[0]+ox,q[1]+oy));g.stroke()})}
-},14);
-const skyTex=canvasTex(4,512,(g,W,H)=>{
-  const gr=g.createLinearGradient(0,0,0,H);
-  gr.addColorStop(0,'#04060f');gr.addColorStop(.36,'#0d1230');gr.addColorStop(.47,'#3a2a44');gr.addColorStop(.5,'#5a3a3e');gr.addColorStop(1,'#20140f');
+  if(M.crack!=='lava'){g.strokeStyle=`rgba(${M.crack},.35)`;g.lineWidth=1;
+    for(let i=0;i<40;i++){const pts=[[rnd()*W,rnd()*H]];for(let k=0;k<5;k++){const q=pts[pts.length-1];pts.push([q[0]+(rnd()-.5)*40,q[1]+(rnd()-.5)*40])}
+      tiled(W,H,(ox,oy)=>{g.beginPath();pts.forEach((q,k)=>k?g.lineTo(q[0]+ox,q[1]+oy):g.moveTo(q[0]+ox,q[1]+oy));g.stroke()})}}
+},14)}
+// Leuchtende Lavaadern (nur Vulkanwelt)
+function drawLava(){return canvasTex(512,512,(g,W,H)=>{
+  g.fillStyle='#000';g.fillRect(0,0,W,H);
+  for(let i=0;i<26;i++){const pts=[[rnd()*W,rnd()*H]];for(let k=0;k<7;k++){const q=pts[pts.length-1];pts.push([q[0]+(rnd()-.5)*60,q[1]+(rnd()-.5)*60])}
+    for(const [lw,col] of [[7,'rgba(255,90,20,.25)'],[3,'rgba(255,140,40,.8)'],[1.2,'rgba(255,220,120,1)']]){g.strokeStyle=col;g.lineWidth=lw;
+      tiled(W,H,(ox,oy)=>{g.beginPath();pts.forEach((q,k)=>k?g.lineTo(q[0]+ox,q[1]+oy):g.moveTo(q[0]+ox,q[1]+oy));g.stroke()})}}
+},14)}
+const skyFor=M=>canvasTex(4,512,(g,W,H)=>{
+  const gr=g.createLinearGradient(0,0,0,H),c=M.sky;
+  gr.addColorStop(0,c[0]);gr.addColorStop(.36,c[1]);gr.addColorStop(.47,c[2]);gr.addColorStop(.5,c[3]);gr.addColorStop(1,c[4]);
   g.fillStyle=gr;g.fillRect(0,0,W,H);
 });
+const groundTex=drawGround(MAP);
+const skyTex=skyFor(MAP);
 const glowTex=canvasTex(64,64,(g)=>{const gr=g.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(.35,'rgba(255,255,255,.45)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,64,64)});
 const numTex=canvasTex(256,96,(g)=>{g.fillStyle='#ffd23f';g.font='bold 64px "Russo One", Arial Black, sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('OB-07',128,50)});
 
@@ -93,13 +114,44 @@ const skyMesh=new THREE.Mesh(new THREE.SphereGeometry(500,32,24),new THREE.MeshB
 }
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(600,600),new THREE.MeshStandardMaterial({map:groundTex,roughness:1,metalness:0}));
 ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
-{
-  const rg=new THREE.DodecahedronGeometry(1,0),rm=new THREE.MeshStandardMaterial({color:0x5a3d2e,roughness:1,flatShading:true});
-  for(let i=0;i<70;i++){
-    const m=new THREE.Mesh(rg,rm);let x=(rnd()-.5)*160;if(Math.abs(x)<27)x+=Math.sign(x||1)*27;
-    const s=0.8+rnd()*3.5;m.scale.set(s,s*(0.5+rnd()*0.6),s);m.position.set(x,s*0.25,-150+rnd()*200);m.rotation.y=rnd()*6;
-    m.castShadow=true;m.receiveShadow=true;scene.add(m);
+const decoGroup=new THREE.Group();scene.add(decoGroup);
+function buildDeco(M){
+  decoGroup.children.slice().forEach(c=>{decoGroup.remove(c);if(c.material&&c.material.dispose)c.material.dispose()});
+  const rockG=new THREE.DodecahedronGeometry(1,0),shardG=new THREE.ConeGeometry(.6,3,5),crysG=new THREE.OctahedronGeometry(1,0),poolG=new THREE.CircleGeometry(1,18);
+  const pos=()=>{let x=(rnd()-.5)*160;if(Math.abs(x)<27)x+=Math.sign(x||1)*27;return[x,-150+rnd()*200]};
+  if(M.deco==='rocks'||M.deco==='lava'){
+    const rm=new THREE.MeshStandardMaterial({color:M.rock,roughness:1,flatShading:true});
+    for(let i=0;i<70;i++){const m=new THREE.Mesh(rockG,rm),[x,z]=pos(),s=0.8+rnd()*3.5;m.scale.set(s,s*(0.5+rnd()*0.6),s);m.position.set(x,s*0.25,z);m.rotation.y=rnd()*6;m.castShadow=m.receiveShadow=true;decoGroup.add(m)}
   }
+  if(M.deco==='lava'){
+    const lm=new THREE.MeshBasicMaterial({color:0xff6a1a});
+    for(let i=0;i<22;i++){const m=new THREE.Mesh(poolG,lm),[x,z]=pos(),s=1.5+rnd()*4;m.rotation.x=-Math.PI/2;m.scale.set(s,s*(.5+rnd()*.5),1);m.position.set(x,.05,z);decoGroup.add(m)}
+  }
+  if(M.deco==='ice'){
+    const im=new THREE.MeshStandardMaterial({color:M.rock,roughness:.15,metalness:.1,emissive:0x16304a,flatShading:true,transparent:true,opacity:.92});
+    for(let i=0;i<60;i++){const g=new THREE.Group(),[x,z]=pos(),s=.7+rnd()*2.2;
+      for(let k=0;k<3+(rnd()*3|0);k++){const m=new THREE.Mesh(shardG,im);m.position.set((rnd()-.5)*1.6,1.2,(rnd()-.5)*1.6);m.rotation.set((rnd()-.5)*.7,rnd()*6,(rnd()-.5)*.7);m.scale.set(1,.6+rnd(),1);m.castShadow=true;g.add(m)}
+      g.position.set(x,0,z);g.scale.setScalar(s);decoGroup.add(g)}
+  }
+  if(M.deco==='crystal'){
+    const cols=[0x8f6bff,0x4fe0d0,0xff6bd0];
+    for(let i=0;i<55;i++){const col=cols[rnd()*3|0],cm=new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:.45,roughness:.2,flatShading:true});
+      const g=new THREE.Group(),[x,z]=pos(),s=.6+rnd()*1.8;
+      for(let k=0;k<2+(rnd()*4|0);k++){const m=new THREE.Mesh(crysG,cm);m.scale.set(.45,1.4+rnd()*1.6,.45);m.position.set((rnd()-.5)*1.4,1,(rnd()-.5)*1.4);m.rotation.set((rnd()-.5)*.8,rnd()*6,(rnd()-.5)*.8);m.castShadow=true;g.add(m)}
+      g.position.set(x,0,z);g.scale.setScalar(s);decoGroup.add(g)}
+  }
+}
+buildDeco(MAP);
+function setMap(i){
+  i=((i|0)%MAPS.length+MAPS.length)%MAPS.length;if(i===mapIdx&&ground.material.map)return;
+  mapIdx=i;MAP=MAPS[i];
+  const old=ground.material.map;ground.material.map=drawGround(MAP);if(old&&old!==groundTex&&old.dispose)old.dispose();
+  if(MAP.crack==='lava'){ground.material.emissiveMap=drawLava();ground.material.emissive.setHex(0xff5a1a);ground.material.emissiveIntensity=.9}
+  else{ground.material.emissiveMap=null;ground.material.emissive.setHex(0);ground.material.emissiveIntensity=1}
+  ground.material.needsUpdate=true;
+  const os=skyMesh.material.map;skyMesh.material.map=skyFor(MAP);skyMesh.material.needsUpdate=true;if(os&&os!==skyTex&&os.dispose)os.dispose();
+  rainMat.color.setHex(MAP.rainCol);
+  buildDeco(MAP);
 }
 
 /* ---------- Terraforming: der Planet wird mit den Wellen grüner ---------- */
@@ -188,7 +240,7 @@ function updateEnv(dt){
   const L=env.day,v=env.terra,r=env.rain,f=env.fog;
   // Tönung: Tag weiß, Dämmerung orange, Nacht dunkelblau
   _e2.setHex(0xffffff).lerp(_e3.setHex(0xff9a66),env.sunset*.75).lerp(_e3.setHex(0x26305a),1-L);
-  _e1.setHex(lerpHex(0x4a3346,0x5d7f86,v)).multiply(_e2).lerp(_e3.setHex(0x5a6470).multiplyScalar(L),r*.45).lerp(_e3.setHex(0x9aa4a8).multiplyScalar(L),f*.6);
+  _e1.setHex(lerpHex(MAP.fog,0x5d7f86,v)).multiply(_e2).lerp(_e3.setHex(0x5a6470).multiplyScalar(L),r*.45).lerp(_e3.setHex(0x9aa4a8).multiplyScalar(L),f*.6);
   scene.fog.color.copy(_e1);scene.background.copy(_e1);
   scene.fog.near=(70-45*f-20*r)*FIELD_K;scene.fog.far=(230-130*f-60*r)*(.6+.4*FIELD_K);
   sun.position.set(Math.cos(a)*90,Math.max(14,Math.abs(elev)*90),30);
@@ -196,12 +248,12 @@ function updateEnv(dt){
   sun.color.setHex(lerpHex(lerpHex(0xffe0b5,0xff8a4a,env.sunset),0x8fa8ff,1-L));
   hemi.intensity=.75*(.4+.6*L)*(1-.2*r);
   hemi.color.setHex(lerpHex(lerpHex(0xa8b8ff,0xc4e4ff,v),0x4a5aa0,1-L));
-  hemi.groundColor.setHex(lerpHex(0x3a2418,0x2e4a24,v));
+  hemi.groundColor.setHex(lerpHex(MAP.hemiG,0x2e4a24,v));
   _e1.setHex(lerpHex(0xffffff,0xb8e6dc,v*.8)).multiply(_e2).lerp(_e3.setHex(0x8a949c),r*.5);
   skyMesh.material.color.copy(_e1);
   rain.visible=r>.02;
   if(rain.visible){
-    rainMat.opacity=.38*r;const fall=46*dt,drift=10*dt;
+    rainMat.opacity=(MAP.snow?.7:.38)*r;const fall=MAP.rainFall*dt,drift=(MAP.snow?18:10)*dt;
     for(let i=0;i<RAIN_N;i++){const o=i*6;rainPos[o+1]-=fall;rainPos[o+4]-=fall;rainPos[o]+=drift*.2;rainPos[o+3]+=drift*.2;
       if(rainPos[o+4]<0){const x=(rnd()-.5)*90,y=50+rnd()*5,z=-70+rnd()*120;rainPos[o]=x;rainPos[o+1]=y;rainPos[o+2]=z;rainPos[o+3]=x+.25;rainPos[o+4]=y-1.1;rainPos[o+5]=z+.15}}
     rainGeo.attributes.position.needsUpdate=true;

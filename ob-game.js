@@ -110,9 +110,9 @@ function buildWave(w){
     if(w>=3&&r<pz)type='panzer';
     else if(w>=6&&r<pz+.14)type='spucker';
     else if(w>=2&&r<.62)type='schwarm';
-    const ln=lanes()[rnd()*3|0],x=ln.x+(rnd()-.5)*2*ln.j;
-    if(type==='schwarm'){for(let k=0;k<4;k++)q.push({type,t:t+k*.15,x:x+(rnd()-.5)*2,z:ln.z+rnd()*2})}
-    else q.push({type,t,x,z:ln.z+rnd()*2});
+    const sp=spawnPoint(w),x=sp.x;
+    if(type==='schwarm'){for(let k=0;k<4;k++)q.push({type,t:t+k*.15,x:x+(rnd()-.5)*2,z:sp.z+(rnd()-.5)*2})}
+    else q.push({type,t,x,z:sp.z});
     t+=gap*(.6+rnd()*.8);
   }
   if(bossW){
@@ -315,8 +315,9 @@ function updateEnemies(dt){
    ========================================================= */
 function turretTip(v){const T=FS.turrets;(T[0]||T[T.length-1]).tip.getWorldPosition(v);return v}
 function heatPerShot(id){const it=ITEMS[id];return it.base.heat*it.base.cool/R(id,'cool')}
-function canFire(id){return !run.over[id]&&(run.wcd[id]||0)<=0}
+function canFire(id){return !run.over[id]&&(run.wcd[id]||0)<=0&&(id!=='kanone'||run.tut||run.ammo>=1)}
 function fireWeapon(id,tp){
+  if(id==='kanone'&&!run.tut)run.ammo=Math.max(0,run.ammo-1);
   run.wcd[id]=1/R(id,'rate');
   run.heat[id]=(run.heat[id]||0)+heatPerShot(id);
   if(run.heat[id]>=100){run.heat[id]=100;run.over[id]=true;SFX.overheat();if(id===run.sel&&hold)toast(ITEMS[id].name+' überhitzt')}
@@ -1269,6 +1270,37 @@ function tryMark(p){
   markEnemy(best,0);if(MP)MP.mk=[best.id,(MP.mk?MP.mk[1]:0)+1];
 }
 
+/* ---------- Munition der Bordkanone und Nachschub ---------- */
+let ammoShips=[],ammoHintT=0;
+function requestAmmo(){
+  if(!run||!play()||halted||run.tut)return;
+  if(ammoShips.length){toast('Nachschub ist schon unterwegs');return}
+  if((run.cd.ammo||0)>0){SFX.deny();toast('Nachschub: noch '+Math.ceil(run.cd.ammo)+' s');return}
+  if(run.ammo>=run.ammoMax){toast('Das Magazin ist voll');return}
+  run.cd.ammo=20;
+  const to=new THREE.Vector3(ship.position.x,ship.position.y+4,ship.position.z),from=to.clone().add(new THREE.Vector3(70,35,-130));
+  const g=makeShuttle();g.scale.setScalar(.6);g.position.copy(from);scene.add(g);
+  ammoShips.push({g,from,to,t:0,phase:'in'});SFX.jet2(to,2);toast('Munitionsnachschub angefordert');
+}
+function updateAmmoShips(dt){
+  for(const a of ammoShips){
+    a.t+=dt;const g=a.g;
+    if(a.phase==='in'){const k=Math.min(1,a.t/3.5),e=1-(1-k)*(1-k);g.position.lerpVectors(a.from,a.to,e);g.lookAt(tmp.copy(a.to).sub(a.from).add(a.to));
+      if(k>=1){a.phase='dock';a.t=0;SFX.thump(a.to)}}
+    else if(a.phase==='dock'){g.position.set(a.to.x,a.to.y+Math.sin(a.t*8)*.06,a.to.z);if(rnd()<.6)spark(a.to.clone().add(jit(2.5)).setY(a.to.y-1),0xffd23f,1,2,2);
+      if(a.t>1.1){a.phase='out';a.t=0;if(run){run.ammo=run.ammoMax}SFX.pickup();toast('Bordkanone nachgeladen');a.from2=g.position.clone()}}
+    else{const k=Math.min(1,a.t/2.2);g.position.set(a.from2.x-k*k*70,a.from2.y+k*k*40,a.from2.z-k*k*90);if(k>=1)a.done=1}
+  }
+  ammoShips=ammoShips.filter(a=>{if(!a.done)return true;scene.remove(a.g);return false});
+}
+function ammoEmptyHint(){if(performance.now()-ammoHintT<2500)return;ammoHintT=performance.now();SFX.deny();toast('Bordkanone leer! Nachschub anfordern'+(isPC?' (Leertaste)':''))}
+/* ---------- Spawnpunkte: vorn auf drei Bahnen, ab Welle 4 auch von den Seiten ---------- */
+function spawnPoint(w){
+  const sideP=w>=4?Math.min(.32,.12+w*.006):0;
+  if(rnd()<sideP){const d=fieldDims(),sd=rnd()<.5?-1:1;return{x:sd*(d.X+1),z:BASE.z+20+rnd()*Math.max(6,d.ZF-BASE.z-26)}}
+  const ln=lanes()[rnd()*3|0];return{x:ln.x+(rnd()-.5)*2*ln.j,z:ln.z+rnd()*2};
+}
+
 function rebuildRing(){
   const lvl=Math.round(R('basis','ring'));if(lvl<=0)return;
   for(let k=0;k<5;k++){
@@ -1470,7 +1502,7 @@ function updateZones(dt){
    ========================================================= */
 function newRun(start,tut){
   return {start,wave:start,mult:1+(start-1)/20*.6,credits:0,xp:0,level:1,kills:0,medals:0,banked:0,
-    weapons:['kanone'],sel:'kanone',ev:null,blackout:0,dmgMul:1,crit:0,crMul:1,mdMul:1,xpMul:1,dr:0,cdMul:1,cmd:null,heat:{},over:{},wcd:{},lv:{},cd:{},order:'auto',mechOrder:'auto',marOrder:'auto',tut:!!tut,placing:null,pending:0,hp:0,lastBonus:0};
+    weapons:['kanone'],sel:'kanone',ev:null,blackout:0,ammo:0,ammoMax:0,dmgMul:1,crit:0,crMul:1,mdMul:1,xpMul:1,dr:0,cdMul:1,cmd:null,heat:{},over:{},wcd:{},lv:{},cd:{},order:'auto',mechOrder:'auto',marOrder:'auto',tut:!!tut,placing:null,pending:0,hp:0,lastBonus:0};
 }
 function clearAll(){
   SFX.laser(false);
@@ -1485,7 +1517,7 @@ function clearAll(){
   jets.forEach(j=>scene.remove(j.g));jets=[];
   shots.forEach(s=>scene.remove(s.m));shots=[];
   zones.forEach(z=>scene.remove(z.m));zones=[];
-  marks.forEach(m=>scene.remove(m.g));marks=[];
+  marks.forEach(m=>scene.remove(m.g));marks=[];ammoShips.forEach(a=>scene.remove(a.g));ammoShips=[];
   later=[];laser.on=0;act.luft=act.barrage=null;beam.visible=laserHit.visible=false;
   laser2.on=0;actR.luft=actR.barrage=null;beam2.visible=laserHit2.visible=false;
   hold=null;$('boss').hidden=true;removeSupply();endGuided();$('app').classList.remove('blackout');
@@ -1494,7 +1526,8 @@ function startRun(start,tut=false){
   clearAll();
   run=newRun(start,tut);
   run.credits=Math.round(R('allg','startcr')+(start-1)*22);
-  run.hp=R('basis','maxhp');
+  run.hp=R('basis','maxhp');run.ammoMax=R('kanone','ammo');run.ammo=run.ammoMax;
+  if(tut)setMap(0);else if(!(MP&&MP.role==='guest'))setMap(rnd()*MAPS.length|0);env.snow=!!MAP.snow;
   if(!tut){run.dmgMul=rebirthDmg()*(1+enchSum('dmg'));run.crit=enchSum('crit');run.crMul=rebirthMoney()*(1+enchSum('cr'));run.mdMul=rebirthMoney();
     run.xpMul=1+enchSum('xp');run.dr=Math.min(.5,enchSum('dr'));run.cdMul=1-Math.min(.5,enchSum('cd'))}
   FIELD_K=fieldTargetK(start);
@@ -1514,11 +1547,13 @@ function startWave(){
   rebuildRing();ensureNests();
   run.ev=pickEvent(run.wave);run.blackout=0;$('app').classList.remove('blackout');
   const wr=rnd();env.rainT=0;env.fogT=0;let wtxt='';
-  if(run.wave>=3&&wr<.22){env.rainT=.5+rnd()*.5;wtxt='Regen zieht auf'}
+  if(run.wave>=3&&wr<.22){env.rainT=.5+rnd()*.5;wtxt=MAP.rainName}
   else if(run.wave>=3&&wr<.34){env.fogT=.6+rnd()*.4;wtxt='Nebel zieht auf'}
   const boss=run.wave%20===0?'Titan, Brutkönigin und Brutwächter im Anmarsch':run.wave%5===0?'Brutkönigin und Brutwächter im Anmarsch':'';
   SFX.horn();
-  const evt=run.ev?EVENTS[run.ev.id].name+': '+EVENTS[run.ev.id].sub:'';if(run.ev)wait(.8,()=>SFX.alarm());
+  const evt=run.ev?EVENTS[run.ev.id].name+': '+EVENTS[run.ev.id].sub:'';
+  if(run.wave===run.start)wtxt=[MAP.name+' · '+MAP.sub,wtxt].filter(Boolean).join(' · ');
+  if(run.wave===4&&run.start<=4)wtxt=[wtxt,'Gegner kommen jetzt auch von den Seiten'].filter(Boolean).join(' · ');if(run.ev)wait(.8,()=>SFX.alarm());
   banner('WELLE '+run.wave+(boss||wtxt||evt?'<small>'+[boss,evt,wtxt].filter(Boolean).join(' · ')+'</small>':''));
   updHud();
 }
@@ -1596,6 +1631,7 @@ function pickLevel(c){
 }
 function afterUpgrade(id,k,delta){
   if(id==='kanone'&&k==='twin')buildTurrets(1+Math.round(R('kanone','twin')));
+  if(id==='kanone'&&k==='ammo'&&run){const nm=R('kanone','ammo');run.ammo=Math.min(nm,run.ammo+nm-run.ammoMax);run.ammoMax=nm}
   if(id==='basis'&&k==='turret')buildBaseGuns(Math.round(R('basis','turret')));
   if(id==='basis'&&k==='maxhp'&&run){const mx=R('basis','maxhp');run.hp=Math.min(mx,run.hp+mx*.2/(1+.2*delta))}
   if(id==='basis'&&k==='ring'&&run&&phase==='shop')rebuildRing();
@@ -1613,8 +1649,11 @@ function buildSlots(){
   const wl=$('wpnList');wl.innerHTML='';slotEls.w={};
   run.weapons.forEach((id,i)=>{
     const b=el('button','slot',`<span class="sn">${ITEMS[id].short}</span><span class="sk"></span><span class="heat"><i></i></span>`);
-    b.onclick=()=>selWeapon(id);wl.appendChild(b);slotEls.w[id]={b,k:b.querySelector('.sk'),h:b.querySelector('.heat i'),key:String(i+1)};
+    if(id==='kanone'&&!run.tut)b.insertAdjacentHTML('beforeend','<span class="ammo"><i></i></span>');
+    b.onclick=()=>selWeapon(id);wl.appendChild(b);slotEls.w[id]={b,k:b.querySelector('.sk'),h:b.querySelector('.heat i'),am:b.querySelector('.ammo i'),key:String(i+1)};
   });
+  slotEls.am=null;
+  if(!run.tut){const ab=el('button','slot',`<span class="sn">Nachschub</span><span class="sk"></span>`);ab.onclick=requestAmmo;wl.appendChild(ab);slotEls.am={b:ab,k:ab.querySelector('.sk')}}
   const sl=$('supList');sl.innerHTML='';slotEls.s={};
   const sups=SUPPORT_IDS.filter(id=>M.unlocked[id]);$('supHead').hidden=!sups.length;
   sups.forEach(id=>{
@@ -1645,7 +1684,11 @@ function updSlots(){
     sc.ak.textContent=cd>0?Math.ceil(cd)+' s':isPC?'Taste K':'Bereit'}
   for(const id in slotEls.w){const s=slotEls.w[id],h=run.heat[id]||0,over=!!run.over[id];
     s.b.classList.toggle('sel',run.sel===id);s.b.classList.toggle('over',over);s.h.style.width=h+'%';
-    s.k.textContent=over?'Überhitzt':isPC?'Taste '+s.key:(run.sel===id?'Aktiv':'')}
+    s.k.textContent=over?'Überhitzt':isPC?'Taste '+s.key:(run.sel===id?'Aktiv':'');
+    if(s.am){const r=run.ammoMax?run.ammo/run.ammoMax:1;s.am.style.width=(r*100)+'%';s.b.classList.toggle('empty',run.ammo<1);if(run.ammo<1)s.k.textContent='Leer';else if(!over)s.k.textContent=Math.ceil(run.ammo)+' Schuss'}}
+  if(slotEls.am){const a=slotEls.am,cd=run.cd.ammo||0,low=run.ammoMax&&run.ammo/run.ammoMax<.25;
+    a.b.style.setProperty('--cd',cd>0&&!ammoShips.length?(cd/20).toFixed(3):0);a.b.classList.toggle('low',!!low&&!ammoShips.length&&cd<=0);a.b.classList.toggle('ready',cd<=0&&!ammoShips.length&&play());
+    a.k.textContent=ammoShips.length?'Unterwegs':cd>0?Math.ceil(cd)+' s':isPC?'Leertaste':'Anfordern'}
   for(const id in slotEls.s){const s=slotEls.s[id],cd=run.cd[id]||0,max=R(id,'cd');
     s.b.style.setProperty('--cd',cd>0?(cd/max).toFixed(3):0);s.b.classList.toggle('ready',cd<=0&&play());s.b.classList.toggle('placing',run.placing===id);
     s.k.textContent=cd>0?Math.ceil(cd)+' s':isPC?'Taste '+ITEMS[id].key:'Bereit'}
@@ -1979,6 +2022,7 @@ addEventListener('keydown',e=>{
   if(!run||!play()||halted||e.repeat||e.ctrlKey||e.metaKey||e.altKey)return;
   if(/^[1-7]$/.test(k)){const id=run.weapons[+k-1];if(id)selWeapon(id);return}
   if(k==='o'){$('ordToggle').click();return}
+  if(k===' '){e.preventDefault();requestAmmo();return}
   if(k==='+'||k==='='){zoomBy(1/1.15);return}
   if(k==='-'){zoomBy(1.15);return}
   const ORD={x:'attack',c:'retreat',v:'auto',b:'hold'};
@@ -2039,6 +2083,7 @@ function update(dt,t){
   for(const id in run.cd)run.cd[id]=Math.max(0,run.cd[id]-dt);
   for(const id of ABILITY_IDS.concat(SUPPORT_IDS))if(run.cd[id]==null)run.cd[id]=0;
   // Waffen: Abkühlen und Feuern
+  updateAmmoShips(dt);
   for(const id of run.weapons){
     run.wcd[id]=Math.max(0,(run.wcd[id]||0)-dt);
     run.heat[id]=Math.max(0,(run.heat[id]||0)-R(id,'cool')*dt*(run.over[id]?1.3:1));
@@ -2046,6 +2091,7 @@ function update(dt,t){
   }
   if(!run.placing&&!guided){
     if(hold&&canFire(run.sel))fireWeapon(run.sel,hold.clone());
+    else if(hold&&run.sel==='kanone'&&!run.tut&&run.ammo<1)ammoEmptyHint();
     // Langsames Auto-Feuer: jede Waffe schießt für sich, außer die gerade von Hand gefeuerte
     if(!run.tut){const f=markedTarget()||frontEnemy();run.auto=run.auto||{};
       for(const id of run.weapons){

@@ -8,7 +8,7 @@
    Fähigkeiten über seine eigene Presence zurück.
    ========================================================= */
 const NAME_KEY='orbitalbrigade-name';
-const GAME_VER='2026-10-23b';
+const GAME_VER='2026-10-23c';
 const ET_KEYS=Object.keys(ET),ST_KEYS=['sentry','wall','minen','moerser','kaserne','ring','graeber'],SC_KEYS=['rifle','flamer','rpg','sniper'];
 const ANT_ST=['swarm','form','body','scatter','flood','dying','gone'],EV_KEYS=['meteor','supply','blackout','frenzy','gold'];
 $('bMP').hidden=!window.OB_NET;
@@ -202,7 +202,7 @@ function hostSnap(){
   const sup=supply?[r1(supply.p.x),r1(supply.p.z),r1(supply.g.position.y)]:null;
   const o=Object.assign(myInputs(),{n:MP.name,r:'h',id:MP.runId,ph,wv:run.wave,st:run.start,hp:Math.ceil(run.hp),mx:Math.round(R('basis','maxhp')),
     eb:Math.round((run.earnBase||0)*10)/10,k:run.kills,env:[Math.round(env.t*1000),Math.round(env.rainT*100),Math.round(env.fogT*100)],
-    en,so,sr,pd,me,sh,rv,mr,sup,bl:ITEMS.basis.stats.map(k=>runLv(run,'basis',k)),ev:run.ev?EV_KEYS.indexOf(run.ev.id):-1,bo:Math.ceil(run.blackout||0),fk:Math.round(FIELD_K*100)});
+    en,so,sr,pd,me,sh,rv,mr,sup,mi:mapIdx,bl:ITEMS.basis.stats.map(k=>runLv(run,'basis',k)),ev:run.ev?EV_KEYS.indexOf(run.ev.id):-1,bo:Math.ceil(run.blackout||0),fk:Math.round(FIELD_K*100)});
   return o;
 }
 function hostApplyGuest(P,dt){
@@ -262,6 +262,7 @@ function guestFollowHost(P,dt){
   if(d>0){MP.ebSeen=eb;run.credits+=d*R('allg','credits');run.xp+=d*R('allg','xp');run.medals+=d*.12*R('allg','medals');
     while(run.xp>=xpNeed(run.level)){run.xp-=xpNeed(run.level);run.level++;run.pending++}}
   run.kills=num(P.k,0,1e9);
+  if(typeof P.mi==='number'&&P.mi!==mapIdx){setMap(P.mi);env.snow=!!MAP.snow;toast('Karte: '+MAP.name+' · '+MAP.sub)}
   if(Array.isArray(P.bl)){let ch=false;ITEMS.basis.stats.forEach((k,i)=>{const h=Math.round(num(P.bl[i],0,50)),key=lvKey('basis',k);if(h>(run.lv[key]||0)){run.lv[key]=h;ch=true}});if(ch&&phase==='shop'&&runCat==='basis')renderRunShop()}
   const bo=num(P.bo,0,60);if(bo>0&&!(run.blackout>0)){SFX.blackout(true);flash(.55,'#000');banner('STROMAUSFALL<small>Fähigkeiten und Unterstützung fallen kurz aus</small>')}
   run.blackout=bo;$('app').classList.toggle('blackout',bo>0);
