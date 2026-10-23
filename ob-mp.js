@@ -8,7 +8,7 @@
    Fähigkeiten über seine eigene Presence zurück.
    ========================================================= */
 const NAME_KEY='orbitalbrigade-name';
-const GAME_VER='2026-10-24c';
+const GAME_VER='2026-10-24d';
 const ET_KEYS=Object.keys(ET),ST_KEYS=['sentry','wall','minen','moerser','kaserne','ring','graeber'],SC_KEYS=['rifle','flamer','rpg','sniper'];
 const ANT_ST=['swarm','form','body','scatter','flood','dying','gone'],EV_KEYS=['meteor','supply','blackout','frenzy','gold'];
 $('bMP').hidden=!window.OB_NET;
@@ -163,12 +163,12 @@ function remoteShot(id,aim,tipObj,shipObj){
 function remoteFire(P,shipObj,tipObj,dt){
   const tw=Math.round(num(P.tw,1,6,1));if(turrets2.length!==tw)buildTurrets2(tw);
   MP.rfT-=dt;
-  const hand=P.f&&Array.isArray(P.aim)?WEAPON_IDS[num(P.wp,0,WEAPON_IDS.length-1)]:null;
+  let hand=P.f&&Array.isArray(P.aim)?WEAPON_IDS[num(P.wp,0,WEAPON_IDS.length-1)]:null;if(hand&&ITEMS[hand].passive)hand=null;
   if(hand&&MP.rfT<=0){MP.rfT=1/Math.min(7,ITEMS[hand].base.rate);remoteShot(hand,new THREE.Vector3(num(P.aim[0],-300,300)/10,.5,num(P.aim[1],-500,500)/10),tipObj,shipObj)}
   // Langsames Auto-Feuer der anderen Waffen des Mitspielers nachbilden
   if(phase!=='fight'||!Array.isArray(P.wl))return;
   MP.raT=MP.raT||{};const f=frontEnemy();
-  for(const i of P.wl.slice(0,8)){const id=WEAPON_IDS[i];if(!id||id===hand)continue;
+  for(const i of P.wl.slice(0,9)){const id=WEAPON_IDS[i];if(!id||id===hand||ITEMS[id].passive)continue;
     MP.raT[id]=(MP.raT[id]||rnd())-dt;
     if(f&&MP.raT[id]<=0){MP.raT[id]=1/(ITEMS[id].base.rate*.45)*(.9+rnd()*.2);remoteShot(id,lead(f,.5),tipObj,shipObj)}}
 }

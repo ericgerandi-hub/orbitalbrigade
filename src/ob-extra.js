@@ -204,3 +204,9 @@ function dailyEnd(){
   saveMeta();if(typeof frBroadcast==='function')frBroadcast(true);
 }
 $('bDaily').onclick=openDaily;$('dyGo').onclick=startDaily;$('dyBack').onclick=()=>{renderMenu();showOv('ovMenu')};
+
+/* Persönlicher Geschenk-Link: schaltet die Ameisenlegion nur in diesem Browser frei */
+(function(){try{const q=new URLSearchParams(location.search);
+  if(q.get('geschenk')==='ameisen-eric-7q2k'){M.cmdOwned=M.cmdOwned||{};M.cmdOwned.cmd_ameise=1;saveMeta();
+    history.replaceState(null,'',location.pathname+location.hash);setTimeout(()=>{toast('Ameisenlegion freigeschaltet');if(typeof renderMenu==='function'&&phase==='menu')renderMenu()},900)}
+}catch(e){}})();

@@ -1320,6 +1320,7 @@ function shipMods(S){return S?S.m:{}}
 function partnerShip(){return MP&&MP.P&&!MP.vs&&typeof MP.P.sh==='string'?shipById(MP.P.sh):null}
 function shipMul(id,k){
   if(!run||!run.ship)return 1;const it=ITEMS[id];if(!it)return 1;const m=shipMods(curShip());
+  if(id==='hangar'){if(curShip().id!=='arche')return 1;return {dmg:1.35,ammo:1.3,reload:.6,speed:1.1}[k]||1}
   if(it.kind==='weapon'){if(k==='dmg'||k==='dps')return m.wdmg||1;if(k==='rate')return m.wrate||1}
   else if(it.kind==='ability'){if(k==='cd')return m.abil||1;if(k==='dmg'||k==='dps')return m.adm||1}
   else if(it.kind==='support'){if(k==='cd')return (m.sup||1)*(run.rich?2:1)}
@@ -1344,7 +1345,7 @@ function renderShip(){
   $('shName').textContent=S.name;$('shCls').textContent=S.cls;$('shDesc').textContent=S.d;
   const d=$('shDots');d.innerHTML='';SHIPS.forEach((x,i)=>{const e=el('i',i===shipIdx?'on':'');e.onclick=()=>{shipIdx=i;renderShip()};d.appendChild(e)});
   const L=$('shMods');L.innerHTML='';const ks=Object.keys(S.m);
-  if(S.perk)L.appendChild(el('li','plus',`<span>${S.perk}</span><b>✈</b>`));
+  if(S.perk)for(const pk of S.perk)L.appendChild(el('li','plus',`<span>${pk}</span><b>✈</b>`));
   if(!ks.length&&!S.perk)L.appendChild(el('li','neutral','Keine Stärken und keine Schwächen'));
   ks.sort((a,b)=>goodMod(b,S.m[b])-goodMod(a,S.m[a])).forEach(k=>{const v=S.m[k],li=el('li',goodMod(k,v)?'plus':'minus',`<span>${SHIP_MOD_TXT[k]}</span><b>${fmtMod(k,v)}</b>`);L.appendChild(li)});
 }
@@ -1731,7 +1732,7 @@ function buildSlots(){
   });
   updSlots();
 }
-function selWeapon(id){if(!run||!run.weapons.includes(id))return;run.sel=id;updSlots()}
+function selWeapon(id){if(!run||!run.weapons.includes(id))return;if(ITEMS[id].passive){toast('Der Hangar arbeitet von selbst: seine Jets greifen eigenständig an');return}run.sel=id;updSlots()}
 function updSlots(){
   if(!run)return;
   if(slotEls.c&&run.cmd){const c=run.cmd,sc=slotEls.c,cd=run.cd.cmd||0,mx=cmdStat('cd')||1;
@@ -1741,6 +1742,7 @@ function updSlots(){
     sc.ab.style.setProperty('--cd',cd>0?(cd/mx).toFixed(3):0);sc.ab.classList.toggle('ready',cd<=0&&!c.dead&&play());
     sc.ak.textContent=cd>0?Math.ceil(cd)+' s':isPC?'Taste K':'Bereit'}
   for(const id in slotEls.w){const s=slotEls.w[id],h=run.heat[id]||0,over=!!run.over[id];
+    if(ITEMS[id].passive){if(typeof hangarSlot==='function')hangarSlot(s);continue}
     s.b.classList.toggle('sel',run.sel===id);s.b.classList.toggle('over',over);s.h.style.width=h+'%';
     s.k.textContent=over?'Überhitzt':isPC?'Taste '+s.key:(run.sel===id?'Aktiv':'');
     if(s.am){const r=run.ammoMax?run.ammo/run.ammoMax:1;s.am.style.width=(r*100)+'%';s.b.classList.toggle('empty',run.ammo<1);if(run.ammo<1)s.k.textContent='Leer';else if(!over)s.k.textContent=Math.ceil(run.ammo)+' Schuss'}}
@@ -2151,7 +2153,7 @@ function update(dt,t){
   for(const id of ABILITY_IDS.concat(SUPPORT_IDS))if(run.cd[id]==null)run.cd[id]=0;
   // Waffen: Abkühlen und Feuern
   updateAmmoShips(dt);
-  for(const id of run.weapons){
+  for(const id of run.weapons){if(ITEMS[id].passive)continue;
     run.wcd[id]=Math.max(0,(run.wcd[id]||0)-dt);
     run.heat[id]=Math.max(0,(run.heat[id]||0)-R(id,'cool')*dt*(run.over[id]?1.3:1));
     if(run.over[id]&&run.heat[id]<=20)run.over[id]=false;
@@ -2162,7 +2164,7 @@ function update(dt,t){
     // Langsames Auto-Feuer: jede Waffe schießt für sich, außer die gerade von Hand gefeuerte
     if(!run.tut&&!isSwarm()){const f=markedTarget()||frontEnemy();run.auto=run.auto||{};
       for(const id of run.weapons){
-        if(hold&&id===run.sel)continue;
+        if((hold&&id===run.sel)||ITEMS[id].passive)continue;
         run.auto[id]=(run.auto[id]||0)-dt;
         if(f&&run.auto[id]<=0&&!run.over[id]&&(run.heat[id]||0)<55&&canFire(id)){run.auto[id]=1/(R(id,'rate')*.45)*(.9+rnd()*.2);fireWeapon(id,lead(f,.5))}
       }}

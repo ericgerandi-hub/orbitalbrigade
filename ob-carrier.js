@@ -10,6 +10,7 @@ const AC={
   bomber:{n:'Kondor',cls:'Bomber',l:'B',sp:16,turn:1.15,alt:13,fuel:34,rearm:11},
   gunship:{n:'Sturmvogel',cls:'Kanonenboot',l:'K',sp:11,turn:1.4,alt:11,fuel:26,rearm:9},
   pelikan:{n:'Pelikan',cls:'Bergungsflieger',l:'P',sp:13,turn:1.7,alt:7,fuel:20,rearm:24},
+  hjet:{n:'Jet',cls:'Hangar-Jet',l:'H',sp:22,turn:2.6,alt:14,fuel:0,rearm:0},
 };
 const AC_KEYS=Object.keys(AC);
 // Reihenfolge der Maschinen und ab welcher Welle sie zur Staffel stoßen
@@ -57,13 +58,13 @@ function launch(pl){
 function landNow(pl){pl.st='hangar';pl.rearm=0;if(pl.g){scene.remove(pl.g);pl.g.visible=false}}
 
 /* Steuerung: auf einen Zielpunkt zufliegen, mit Querlage in Kurven */
-function acSteer(pl,T,dt,vWant){
+function acSteer(pl,T,dt,vWant,vyMin,vk){
   const p=pl.p,A=pl.A;
   pl.v+=((vWant==null?A.sp:vWant)-pl.v)*Math.min(1,dt*1.6);
   const want=Math.atan2(T.x-p.x,T.z-p.z),d=angD(want,pl.yaw),mx=A.turn*dt*(pl.v<4?1.6:1),turn=Math.max(-mx,Math.min(mx,d));
   pl.yaw+=turn;pl.roll+=((dt>0?-turn/dt/A.turn*.75:0)-pl.roll)*Math.min(1,dt*4);
   p.x+=Math.sin(pl.yaw)*pl.v*dt;p.z+=Math.cos(pl.yaw)*pl.v*dt;
-  const vy=Math.max(-10,Math.min(7,(T.y-p.y)*1.3));p.y+=vy*dt;pl.pitch=Math.atan2(vy,Math.max(5,pl.v))*.8;
+  const vy=Math.max(vyMin||-10,Math.min(7,(T.y-p.y)*(vk||1.3)));p.y+=vy*dt;pl.pitch=Math.atan2(vy,Math.max(5,pl.v))*.8;
 }
 function cluster(){
   const vis=enemies.filter(e=>visible(e)&&!e.T.nest);if(!vis.length)return null;
@@ -185,6 +186,8 @@ function unlockedN(){if(!run||run.tut)return SQUAD.length;let n=0;for(const s of
 
 function carrierTick(dt,t){
   const on=carrierOn();
+  hjTick(dt);
+  for(const j of HJ.list)if(j.g&&j.st!=='hangar')for(const g of j.g.userData.glows){const s=1.4*(1+Math.sin(t*30+j.i)*.15);g.scale.set(s,s,1)}
   if(on&&dt>0)carrierSim(dt,t);
   else if(!on&&CV.run){carrierReset();CV.run=null}
   // Propeller und Triebwerksleuchten der fliegenden Maschinen
@@ -213,15 +216,17 @@ function carrierHud(on){
 
 /* ---------- Mehrspieler: Staffel des Mitspielers als Puppen ---------- */
 function carrierSnap(){
-  if(!carrierOn())return null;const a=[];
+  const a=[];
+  for(const j of HJ.list)if(j.st!=='hangar')a.push(20+j.i,AC_KEYS.indexOf('hjet'),Math.round(j.p.x*10),Math.round(j.p.y*10),Math.round(j.p.z*10),Math.round(j.yaw*100),Math.round(j.roll*100),j.ff>0?1:0);
+  if(!carrierOn())return a.length?a:null;
   for(const pl of CV.pl)if(pl&&pl.st!=='hangar')a.push(pl.i,AC_KEYS.indexOf(pl.type),Math.round(pl.p.x*10),Math.round(pl.p.y*10),Math.round(pl.p.z*10),Math.round(pl.yaw*100),Math.round(pl.roll*100),(pl.ff>0?1:0)|(pl.fb>0?2:0)|(pl.fg>0?4:0));
   return a;
 }
 function carrierPuppets(arr,dt){
   if(!Array.isArray(arr))return;CV.pupAt=performance.now();
   const seen=new Set(),host=MP&&MP.role==='host';
-  for(let k=0;k+7<arr.length&&k<80;k+=8){
-    const i=arr[k]|0,type=AC_KEYS[arr[k+1]|0];if(!type||i<0||i>15)continue;seen.add(i);
+  for(let k=0;k+7<arr.length&&k<160;k+=8){
+    const i=arr[k]|0,type=AC_KEYS[arr[k+1]|0];if(!type||i<0||i>31)continue;seen.add(i);
     let P=CV.pup[i];if(!P||P.type!==type){if(P)scene.remove(P.g);P=CV.pup[i]={type,g:makePlane(type),fresh:true,bT:0,gT:0};scene.add(P.g)}
     const tp=_cv.set(arr[k+2]/10,arr[k+3]/10,arr[k+4]/10),yaw=arr[k+5]/100,roll=arr[k+6]/100,fl=arr[k+7]|0;
     if(!isFinite(tp.x+tp.y+tp.z+yaw+roll))continue;
@@ -243,4 +248,77 @@ function carrierPuppets(arr,dt){
     CV.bombs=CV.bombs.filter(b=>{if(!b.dead)return true;scene.remove(b.m);return false});
     for(const s of CV.shells){s.t-=dt;if(s.t<=0){s.dead=true;blast(s.at.clone().setY(.4),0xff9a3d,2,.35)}}CV.shells=CV.shells.filter(s=>!s.dead);
   }
+}
+
+/* =========================================================
+   Waffe „Hangar“: eigene Jets mit eigener Munition.
+   Sturzflug auf das Ziel, abfangen, wieder steigen. Munition
+   leer: zurück zum Schiff, kurz nachladen, wieder starten.
+   ========================================================= */
+const HJ={run:null,list:[],catT:0,c:0};
+function hangarOn(){return !!(run&&!run.tut&&run.weapons.includes('hangar')&&!isSwarm())}
+function hjArche(){return ship.userData.shipId==='arche'}
+function hjCount(){return Math.max(1,Math.round(R('hangar','count')))+(run.ship==='arche'?1:0)}
+function hjReset(){for(const j of HJ.list)if(j.g)scene.remove(j.g);HJ.list=[];HJ.run=run;HJ.catT=0}
+function hjBelly(){return deckW(0,-1.4,-3)}
+function hjNew(i){return{i,type:'hjet',A:{sp:22,turn:2.6,alt:14},st:'hangar',rearm:0,t:0,p:new THREE.Vector3(),yaw:0,roll:0,pitch:0,v:0,g:null,tg:null,mode:'climb',mt:0,fireT:0,ammo:0,am0:1,ff:0}}
+function hjLaunch(j){
+  j.st='launch';j.t=0;j.ammo=j.am0=Math.max(1,Math.round(R('hangar','ammo')));j.A.sp=22*R('hangar','speed');j.mode='climb';j.tg=null;
+  if(!j.g)j.g=makePlane('hjet');scene.add(j.g);j.g.visible=true;
+  if(hjArche()){HJ.c^=1;j.c=HJ.c;j.p.copy(deckW(j.c?-1.2:1.4,1.9,3.4))}else j.p.copy(hjBelly());
+  j.yaw=shipYaw();SFX.jet2(j.p,2);HJ.catT=.6;
+}
+function hjDock(j){j.st='hangar';j.rearm=R('hangar','reload');if(j.g)scene.remove(j.g);spark(j.p.clone(),0x5fd0ff,4,3,2)}
+function hjFly(j,dt){
+  const p=j.p;
+  if(!j.tg||!visible(j.tg)||(j.mode==='climb'&&rnd()<dt*.3)){const m=typeof markedTarget==='function'?markedTarget():null;j.tg=m&&visible(m)?m:pickFighter(p)}
+  const e=j.tg;
+  if(!e){acSteer(j,patrolPt(j,performance.now()/1000),dt);return}
+  const ep=e.g.position,hd=dist2D(p,ep),ang=Math.abs(angD(Math.atan2(ep.x-p.x,ep.z-p.z),j.yaw));
+  if(j.mode==='climb'){
+    acSteer(j,_cv.set(ep.x,15,ep.z),dt);
+    if(p.y>10.5&&hd<26&&hd>7&&ang<.35){j.mode='dive';if(rnd()<.5)SFX.whistle(p,.8)}
+  }else if(j.mode==='dive'){
+    acSteer(j,_cv.set(ep.x,1,ep.z),dt,j.A.sp*1.3,-22,2.6);
+    if(hd<20&&ang<.5){
+      j.fireT-=dt;const d=R('hangar','dmg');
+      while(j.fireT<=0&&j.ammo>0){j.fireT+=.09;j.ammo--;
+        const mz=p.clone().addScaledVector(acFwd(j),1.6),ap=ep.clone().setY(e.T.fly?3.2:.5).add(_cv.set((rnd()-.5)*1.2,0,(rnd()-.5)*1.2));
+        tracer(mz,ap,0x9fe8ff,1.5);if(rnd()<.35)spark(ap,0x5fd0ff,1,4,3);hitNear(ap,1.1,d)}
+      if(j.ff<=0)SFX.mg(p,.4);j.ff=.45;
+    }
+    if(p.y<3.2||hd<3||ang>1.2){j.mode='pull';j.mt=1.1}
+  }else{
+    j.mt-=dt;acSteer(j,p.clone().addScaledVector(acFwd(j),20).setY(15),dt);if(j.mt<=0)j.mode='climb';
+  }
+  if(j.ammo<=0)j.st='return';
+}
+function hjTick(dt){
+  if(!hangarOn()){if(HJ.list.length)hjReset();HJ.run=null;return}
+  if(HJ.run!==run)hjReset();
+  const n=hjCount();while(HJ.list.length<n)HJ.list.push(hjNew(HJ.list.length));
+  if(!dt)return;
+  if(phase!=='fight'){for(const j of HJ.list)if(j.st!=='hangar'){j.st='hangar';j.rearm=0;if(j.g)scene.remove(j.g)}return}
+  HJ.catT-=dt;
+  const any=enemies.some(e=>visible(e)&&!e.T.nest);
+  for(const j of HJ.list){j.ff-=dt;
+    if(j.st==='hangar'){if(j.rearm>0)j.rearm-=dt;else if(HJ.catT<=0&&any)hjLaunch(j);continue}
+    if(j.st==='launch'){j.t+=dt;const k=Math.min(1,j.t/.8);
+      if(hjArche())j.p.copy(deckW(j.c?-1.2:1.4,1.9,3.4+k*k*13));
+      else{const y=shipYaw();j.p.copy(hjBelly()).add(_cv2.set(Math.sin(y)*k*6,-k*3,Math.cos(y)*k*6))}
+      j.yaw=shipYaw();j.v=j.A.sp*Math.max(.3,k);j.roll=0;j.pitch=hjArche()?0:-.3*k;if(k>=1)j.st='fly';
+    }else if(j.st==='fly')hjFly(j,dt);
+    else if(j.st==='return'){const tg=hjArche()?deckW(-1.5,7,-34):hjBelly();acSteer(j,tg,dt);
+      if(j.p.distanceTo(tg)<(hjArche()?6:4.5)){if(hjArche()){j.st='land';j.t=0;j.from=j.p.clone();j.fy=j.yaw}else hjDock(j)}}
+    else if(j.st==='land'){j.t+=dt;const k=Math.min(1,j.t/1.6),s=k*k*(3-2*k);j.p.lerpVectors(j.from,deckW(-1.5,1.9,-8),s);j.yaw=lerpAngle(j.fy,shipYaw(),s);j.roll*=.9;j.pitch=0;if(k>=1)hjDock(j)}
+    if(j.g&&j.st!=='hangar'){j.g.position.copy(j.p);j.g.rotation.set(-j.pitch,j.yaw,j.roll)}
+  }
+}
+// Anzeige im Waffenplatz: wie viele Jets fliegen, Balken = Munition bzw. Nachladen
+function hangarSlot(s){
+  const L=HJ.list;if(!L.length){s.k.textContent='Bereit';s.h.style.width='0%';return}
+  let air=0,sum=0,rel=0;
+  for(const j of L){if(j.st==='hangar'){const r=j.rearm>0?1-j.rearm/Math.max(.1,R('hangar','reload')):1;sum+=r;if(j.rearm>0)rel++}else{air++;sum+=j.ammo/Math.max(1,j.am0)}}
+  s.h.style.width=Math.round(sum/L.length*100)+'%';
+  s.k.textContent=air?air+' von '+L.length+' in der Luft':rel?'Lädt nach':L.length+(L.length>1?' Jets bereit':' Jet bereit');
 }

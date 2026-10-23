@@ -93,6 +93,9 @@ def('weapon','haubitze',{name:'120-mm-Kanone',short:'120 mm',unlock:220,
 def('weapon','plasma',{name:'Plasmawerfer',short:'Plasma',unlock:300,
   desc:'Plasmakugeln hinterlassen brennende Lachen am Boden.',
   base:{dmg:30,rate:1.2,heat:18,cool:22,aoe:2.4,pool:3,fire:22},stats:['dmg','rate','cool','pool','fire']});
+def('weapon','hangar',{name:'Hangar',short:'Hangar',unlock:260,passive:true,
+  desc:'Startet eigene Jets, die selbstständig Gegner im Sturzflug angreifen. Ist die Munition eines Jets leer, fliegt er zurück und lädt kurz nach.',
+  base:{dmg:9,count:1,ammo:36,reload:6,speed:1},stats:['count','dmg','ammo','reload','speed']});
 def('weapon','railgun',{name:'Railgun',short:'Rail',unlock:380,
   desc:'Durchschlägt alle Gegner in einer langen Linie.',
   base:{dmg:130,rate:.6,heat:40,cool:16,len:24},stats:['dmg','rate','cool','len']});
