@@ -19,11 +19,12 @@ function openCasino(){renderCasino();showOv('ovCasino')}
 function renderCasino(){
   csWallet();
   const T=$('csTabs');T.innerHTML='';
-  [['ball','Ballraten'],['slot','Slot-Automat'],['bj','Black Jack']].forEach(([k,n])=>{const b=el('button','tab'+(CS.game===k?' on':''),n);b.onclick=()=>{if(CS.busy||(CS.bj&&!CS.bj.done))return;CS.game=k;renderCasino();SFX.click()};T.appendChild(b)});
+  [['ball','Ballraten'],['slot','Slot-Automat'],['bj','Black Jack'],['shop','Tausch-Shop']].forEach(([k,n])=>{const b=el('button','tab'+(CS.game===k?' on':''),n);b.onclick=()=>{if(CS.busy||(CS.bj&&!CS.bj.done))return;CS.game=k;renderCasino();SFX.click()};T.appendChild(b)});
   const B=$('csBets');B.innerHTML='<span class="lbl">Einsatz</span>';
   CS_BETS.forEach(v=>{const b=el('button','cbet'+(CS.bet===v?' on':''),String(v));b.onclick=()=>{if(CS.busy||(CS.bj&&!CS.bj.done))return;CS.bet=v;renderCasino();SFX.click()};B.appendChild(b)});
   const G=$('csGame');G.innerHTML='';G.className='cgame '+CS.game;
-  if(CS.game==='ball')renderBall(G);else if(CS.game==='slot')renderSlot(G);else renderBJ(G);
+  $('csBets').hidden=CS.game==='shop';
+  if(CS.game==='ball')renderBall(G);else if(CS.game==='slot')renderSlot(G);else if(CS.game==='shop')renderCsShop(G);else renderBJ(G);
 }
 $('csX1').onclick=()=>csExchange(1);$('csX5').onclick=()=>csExchange(5);
 function csExchange(n){if((M.stars|0)<n){SFX.deny();return}M.stars-=n;csAdd(n*CS_RATE);saveMeta();SFX.buy();csWallet();csMsg(n+' ★ gegen '+n*CS_RATE+' Tokens getauscht.','ok')}
@@ -123,3 +124,25 @@ function bjEnd(){
   csAdd(w);saveMeta();csWallet();csMsg(msg,cls);renderBJ($('csGame'));
 }
 setInterval(()=>{const c=$('csCount');if(c)c.textContent=csTok()?fmt(csTok()):''},1000);
+
+/* ---------- Tausch-Shop: Tokens gegen Medaillen und Sterne ---------- */
+// Sterne kosten hier mehr Tokens als man beim Eintauschen bekommt, damit Hin- und Hertauschen nichts bringt
+const CS_SHOP=[
+  {n:'Medaillen-Beutel',d:'60 Medaillen',c:10,m:60},
+  {n:'Medaillen-Kiste',d:'350 Medaillen',c:50,m:350},
+  {n:'Medaillen-Tresor',d:'800 Medaillen',c:100,m:800},
+  {n:'Ein Stern',d:'1 ★',c:30,s:1},
+  {n:'Sternenbündel',d:'5 ★',c:140,s:5},
+  {n:'Sternenkiste',d:'12 ★',c:310,s:12},
+];
+function renderCsShop(G){
+  G.innerHTML='<p class="chint">Tausche deine Tokens gegen Medaillen und Sterne. Größere Pakete sind günstiger.</p><div class="cshop" id="csShopL"></div>';
+  const L=$('csShopL');
+  for(const it of CS_SHOP){
+    const row=el('div','row',`<div class="nm">${it.n}<span class="lv">${it.d}</span></div>`);
+    const b=el('button','buy',it.c+' Tokens');b.disabled=csTok()<it.c;
+    b.onclick=()=>{if(csTok()<it.c){SFX.deny();return}csAdd(-it.c);if(it.m)M.medals+=it.m;if(it.s)M.stars+=it.s;saveMeta();SFX.buy();csWallet();csMsg(it.n+' gekauft: +'+it.d,'ok');renderCsShop($('csGame'))};
+    row.appendChild(b);L.appendChild(row);
+  }
+  if(!$('csMsg').textContent)csMsg('');
+}

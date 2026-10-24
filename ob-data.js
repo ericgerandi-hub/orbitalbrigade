@@ -211,7 +211,7 @@ const enchCost=(lv)=>1+Math.floor(lv/2);
 // Nötige Welle für die Wiedergeburt: 25, danach +5 pro Wiedergeburt, höchstens 80
 const rbMin=()=>Math.min(80,25+5*(M.rebirths||0));
 // Sterne: höhere Wiedergeburten und mehr Wellen über der Grenze bringen mehr
-const rebirthStars=best=>Math.round((3+Math.max(0,Math.floor((best-rbMin())/10)))*(1+.35*(M.rebirths||0)));
+const rebirthStars=best=>Math.round((5+2*Math.max(0,Math.floor((best-rbMin())/10)))*(1+.5*(M.rebirths||0)));
 
 /* Benötigte Wiedergeburt: stärkere Waffen, Fähigkeiten und Unterstützungen kommen später */
 const RB={haubitze:1,plasma:1,railgun:3,luft:1,kryo:1,barrage:2,rakete:2,moerser:1,kaserne:1,graeber:1,rover:1,mech:2,marine:2};
