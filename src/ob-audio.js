@@ -34,8 +34,18 @@ const SFX=(()=>{
       silentEl.src=URL.createObjectURL(new Blob([b],{type:'audio/wav'}));const p=silentEl.play();if(p&&p.catch)p.catch(()=>{silentEl=null});
     }catch(e){silentEl=null}
   }
+  // Spiel nicht sichtbar (App gewechselt, Tab im Hintergrund, Fenster zu): Ton komplett anhalten
+  let hiddenNow=false;
+  function suspend(){
+    hiddenNow=true;
+    try{if(silentEl){silentEl.pause()}}catch(e){}
+    try{if(ctx&&ctx.state==='running')ctx.suspend()}catch(e){}
+  }
   function unlock(){
+    if(document.hidden)return;
+    hiddenNow=false;
     if(!init())return;
+    try{if(silentEl&&silentEl.paused){const p=silentEl.play();if(p&&p.catch)p.catch(()=>{})}}catch(e){}
     if(ctx.state!=='running'){const r=ctx.resume();if(r&&r.catch)r.catch(()=>{})}
     iosPlayback();startAmbient();musicInit();
   }
@@ -364,8 +374,10 @@ const SFX=(()=>{
   }
   function setMusicVolume(v){musicVol=Math.max(0,Math.min(100,Math.round(v)));ls.set('orbitalbrigade-music',String(musicVol));if(mus.bus)mus.bus.gain.setTargetAtTime(musGain(),ctx.currentTime,.05)}
   function slowmo(k){if(!mus.lp)return;mus.lp.frequency.setTargetAtTime(700*Math.pow(18000/700,1-k),ctx.currentTime,.12)}
-  return{zap,speak,voicePreload,radio,mark,saw,rover,guided,dig,grab,meteor,alarm,blackout,pickup,ants,smash,slowSwoosh,music,setMusicVolume,get musicVolume(){return musicVol},slowmo,jet2,mg,unlock,setMuted,setVolume,get volume(){return vol},get muted(){return muted},weapon,boom,hit,death,roar,baseHit,overheat,ability,whistle,jet,laser,place,podFall,podOpen,thump,sentry,mortar,soldier,spit,click,buy,unlockJingle,deny,levelUp,horn,waveClear,gameOver,ambient};
+  return{suspend,zap,speak,voicePreload,radio,mark,saw,rover,guided,dig,grab,meteor,alarm,blackout,pickup,ants,smash,slowSwoosh,music,setMusicVolume,get musicVolume(){return musicVol},slowmo,jet2,mg,unlock,setMuted,setVolume,get volume(){return vol},get muted(){return muted},weapon,boom,hit,death,roar,baseHit,overheat,ability,whistle,jet,laser,place,podFall,podOpen,thump,sentry,mortar,soldier,spit,click,buy,unlockJingle,deny,levelUp,horn,waveClear,gameOver,ambient};
 })();
 for(const ev of ['pointerdown','pointerup','touchend','click','keydown'])addEventListener(ev,()=>SFX.unlock(),{capture:true,passive:true});
 // Nach dem Zurückkehren in die App (z. B. Anruf, App-Wechsel) wieder anschalten, sobald man tippt
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)SFX.unlock()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)SFX.suspend();else SFX.unlock()});
+addEventListener('pagehide',()=>SFX.suspend());
+addEventListener('freeze',()=>SFX.suspend());
