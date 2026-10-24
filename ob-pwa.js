@@ -18,3 +18,13 @@ $('bInstall').onclick=async()=>{
 };
 $('instClose').onclick=()=>{renderMenu();showOv('ovMenu')};
 pwaUI();
+
+/* ---------- Spiel teilen: Teilen-Menü am Handy, Link kopieren am PC ---------- */
+const SHARE_URL='https://ericgerandi-hub.github.io/orbitalbrigade/';
+const SHARE_TXT='Spiel mit mir Orbitalbrigade! Kostenloses 3D-Spiel im Browser. Über „App installieren“ im Menü landet es auf deinem Startbildschirm.';
+$('bShare').hidden=false;
+$('bShare').onclick=async()=>{
+  if(navigator.share){try{await navigator.share({title:'Orbitalbrigade',text:SHARE_TXT,url:SHARE_URL});return}catch(e){if(e&&e.name==='AbortError')return}}
+  try{await navigator.clipboard.writeText(SHARE_TXT+' '+SHARE_URL);toast('Link kopiert. Füge ihn einfach in WhatsApp oder Discord ein.')}
+  catch(e){prompt('Diesen Link an deine Freunde schicken:',SHARE_URL)}
+};

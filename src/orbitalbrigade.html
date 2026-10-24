@@ -197,6 +197,7 @@ body.mirroring #specBar{z-index:70;opacity:.9}
 .instl .ico{flex:0 0 36px;height:36px;display:grid;place-items:center;border-radius:8px;background:rgba(95,208,255,.12);color:#5fd0ff}
 .instl .ico img{border-radius:6px}
 .btn.install{border-color:#5fd0ff;color:#5fd0ff}
+.btn.share{border-color:#7cf0a8;color:#7cf0a8}
 .radio{position:absolute;z-index:4;left:10px;bottom:120px;max-width:min(360px,calc(100% - 110px));background:rgba(14,30,22,.92);border:1px solid #4fc07a;border-left:4px solid #4fc07a;border-radius:4px;padding:6px 10px;display:flex;flex-direction:column;gap:2px;font-size:13px;pointer-events:none}
 .radio .lbl{color:#7cf0a8}.radio.in{animation:rin .3s ease-out}
 @keyframes rin{0%{opacity:0;transform:translateX(-20px)}100%{opacity:1;transform:none}}
@@ -509,6 +510,7 @@ body.mirroring #specBar{z-index:70;opacity:.9}
         <button class="btn ghost pc-only" id="bKeys">Tastenbelegung</button>
         <button class="btn ghost" id="bFullMenu">Vollbild</button>
         <button class="btn ghost install" id="bInstall" hidden>App installieren</button>
+        <button class="btn ghost share" id="bShare" hidden>Spiel teilen</button>
         <div class="volrow menuvol"><label class="lbl" for="volMenu">Lautstärke</label><input type="range" id="volMenu" min="0" max="100" step="10"><span class="volval" id="volMenuVal">80 %</span></div>
         <div class="volrow menuvol"><label class="lbl" for="musMenu">Musik</label><input type="range" id="musMenu" min="0" max="100" step="10"><span class="volval" id="musMenuVal">60 %</span></div>
         <div class="volrow menuvol gfxrow"><span class="lbl">Grafik</span><div class="seg gfxseg"><button data-l="1">Normal</button><button data-l="2">Hoch</button><button data-l="3">Ultra</button></div></div>
