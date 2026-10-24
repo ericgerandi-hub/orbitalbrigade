@@ -188,6 +188,14 @@ body.mirroring #specBar{z-index:70;opacity:.9}
 .pcard b{font-size:20px}.pcard i{font-style:normal;font-size:20px}.pcard.red{color:#c8283a}
 .pcard.back{background:repeating-linear-gradient(45deg,#2a3a7a 0 6px,#1c2858 6px 12px);border:2px solid #f4f1ea}
 .bjbtns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.inst{max-width:440px}
+.mcasino{display:none}
+@media (max-width:700px),(max-height:640px){#bCasino{display:none}.mcasino{display:block}}
+.instl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;counter-reset:s}
+.instl li{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-size:15px;line-height:1.35}
+.instl .ico{flex:0 0 36px;height:36px;display:grid;place-items:center;border-radius:8px;background:rgba(95,208,255,.12);color:#5fd0ff}
+.instl .ico img{border-radius:6px}
+.btn.install{border-color:#5fd0ff;color:#5fd0ff}
 .radio{position:absolute;z-index:4;left:10px;bottom:120px;max-width:min(360px,calc(100% - 110px));background:rgba(14,30,22,.92);border:1px solid #4fc07a;border-left:4px solid #4fc07a;border-radius:4px;padding:6px 10px;display:flex;flex-direction:column;gap:2px;font-size:13px;pointer-events:none}
 .radio .lbl{color:#7cf0a8}.radio.in{animation:rin .3s ease-out}
 @keyframes rin{0%{opacity:0;transform:translateX(-20px)}100%{opacity:1;transform:none}}
@@ -494,10 +502,12 @@ body.mirroring #specBar{z-index:70;opacity:.9}
         <button class="btn ghost daily" id="bDaily">Tägliche Herausforderung</button>
         <button class="btn ghost" id="bMP" hidden>Mehrspieler</button>
         <button class="btn ghost" id="bShop">Shop</button>
+        <button class="btn ghost mcasino" id="bCasino2">Casino</button>
         <button class="btn ghost" id="bRebirth" hidden>Wiedergeburt</button>
         <button class="btn ghost" id="bTut">Tutorial</button>
         <button class="btn ghost pc-only" id="bKeys">Tastenbelegung</button>
         <button class="btn ghost" id="bFullMenu">Vollbild</button>
+        <button class="btn ghost install" id="bInstall" hidden>App installieren</button>
         <div class="volrow menuvol"><label class="lbl" for="volMenu">Lautstärke</label><input type="range" id="volMenu" min="0" max="100" step="10"><span class="volval" id="volMenuVal">80 %</span></div>
         <div class="volrow menuvol"><label class="lbl" for="musMenu">Musik</label><input type="range" id="musMenu" min="0" max="100" step="10"><span class="volval" id="musMenuVal">60 %</span></div>
         <div class="volrow menuvol gfxrow"><span class="lbl">Grafik</span><div class="seg gfxseg"><button data-l="1">Normal</button><button data-l="2">Hoch</button><button data-l="3">Ultra</button></div></div>
@@ -604,6 +614,19 @@ body.mirroring #specBar{z-index:70;opacity:.9}
         <div class="cbets" id="csBets"></div>
         <div id="csGame" class="cgame"></div>
         <p class="cmsg" id="csMsg"></p>
+      </div>
+    </div>
+
+    <div class="overlay" id="ovInstall" hidden>
+      <div class="frpanel inst">
+        <div class="phead"><h2>Auf den Startbildschirm</h2><button class="btn ghost sm" id="instClose">Schließen</button></div>
+        <p class="hint">So holst du Orbitalbrigade als App auf dein iPhone oder iPad. Es dauert 10 Sekunden.</p>
+        <ol class="instl">
+          <li><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></span><span>Tippe unten in Safari auf das <b>Teilen-Symbol</b>.</span></li>
+          <li><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg></span><span>Wähle <b>„Zum Home-Bildschirm“</b>. Eventuell musst du dafür etwas nach unten scrollen.</span></li>
+          <li><span class="ico"><img src="app/icon-192.png" width="24" height="24" alt=""></span><span>Tippe oben rechts auf <b>„Hinzufügen“</b>. Fertig, das Spiel liegt jetzt bei deinen Apps.</span></li>
+        </ol>
+        <p class="hint">Wichtig: Öffne den Spiel-Link dafür in <b>Safari</b>. In anderen Browsern auf dem iPhone fehlt diese Funktion manchmal.</p>
       </div>
     </div>
 

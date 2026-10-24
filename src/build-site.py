@@ -13,8 +13,11 @@ body=re.sub(r'<link[^>]*>\n?','',body)
 for f in ['ob-data.js','ob-world.js','ob-post.js','ob-gfx.js','ob-audio.js','ob-game.js','ob-extra.js','ob-carrier.js','ob-casino.js']:
     body=body.replace(f'src="{f}"',f'src="{f}?v={ver}"')
 body=body.replace('<script src="ob-casino.js?v='+ver+'" charset="utf-8"></script>',
-  '<script src="ob-casino.js?v='+ver+'" charset="utf-8"></script>\n<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>\n<script src="ob-net.js?v='+ver+'" charset="utf-8"></script>\n<script src="ob-mp.js?v='+ver+'" charset="utf-8"></script>\n<script src="ob-vs.js?v='+ver+'" charset="utf-8"></script>\n<script src="ob-friends.js?v='+ver+'" charset="utf-8"></script>')
+  '<script src="ob-casino.js?v='+ver+'" charset="utf-8"></script>\n<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>\n<script src="ob-net.js?v='+ver+'" charset="utf-8"></script>\n<script src="ob-mp.js?v='+ver+'" charset="utf-8"></script>\n<script src="ob-vs.js?v='+ver+'" charset="utf-8"></script>\n<script src="ob-friends.js?v='+ver+'" charset="utf-8"></script>\n<script src="ob-pwa.js?v='+ver+'" charset="utf-8"></script>')
 assert 'ob-mp.js' in body
+# three.js liegt mit auf der Seite (offline spielbar, kein fremder Server nötig)
+body=body.replace('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js','lib/three.min.js?v=r128')
+assert 'lib/three.min.js' in body
 style=style.replace('<style>','<style>\nhtml,body{margin:0}\nhtml{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}',1)
 out=f'''<!doctype html>
 <html lang="de">
@@ -22,6 +25,13 @@ out=f'''<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b0e1a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="app/favicon.png">
+<link rel="apple-touch-icon" href="app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Orbitalbrigade">
 <meta name="description" content="Orbitalbrigade – 3D-Wellenverteidigung im Orbit.">
 {title}
 {links}{style}
@@ -32,8 +42,16 @@ out=f'''<!doctype html>
 </html>
 '''
 open(os.path.join(OUT,'index.html'),'w',encoding='utf-8').write(out)
-for f in ['ob-data.js','ob-world.js','ob-post.js','ob-gfx.js','ob-audio.js','ob-game.js','ob-extra.js','ob-carrier.js','ob-casino.js','ob-net.js','ob-mp.js','ob-vs.js','ob-friends.js']:shutil.copy(f,os.path.join(OUT,f))
+for f in ['ob-data.js','ob-world.js','ob-post.js','ob-gfx.js','ob-audio.js','ob-game.js','ob-extra.js','ob-carrier.js','ob-casino.js','ob-net.js','ob-mp.js','ob-vs.js','ob-friends.js','ob-pwa.js']:shutil.copy(f,os.path.join(OUT,f))
 open(os.path.join(OUT,'.nojekyll'),'w').close()
+os.makedirs(os.path.join(OUT,'lib'),exist_ok=True);shutil.copy(os.path.join('lib','three.min.js'),os.path.join(OUT,'lib','three.min.js'))
+os.makedirs(os.path.join(OUT,'app'),exist_ok=True)
+for f in os.listdir('app'):
+    if f=='manifest.webmanifest':shutil.copy(os.path.join('app',f),os.path.join(OUT,f))
+    elif f=='sw.js':pass
+    else:shutil.copy(os.path.join('app',f),os.path.join(OUT,'app',f))
+# Offline-Speicher im Hauptordner, damit er die ganze Seite abdeckt
+shutil.copy(os.path.join('app','sw.js'),os.path.join(OUT,'sw.js'))
 if os.path.isdir('voice'):
     os.makedirs(os.path.join(OUT,'voice'),exist_ok=True)
     for f in os.listdir('voice'):shutil.copy(os.path.join('voice',f),os.path.join(OUT,'voice',f))

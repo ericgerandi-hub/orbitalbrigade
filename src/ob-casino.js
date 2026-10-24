@@ -28,7 +28,7 @@ function renderCasino(){
 $('csX1').onclick=()=>csExchange(1);$('csX5').onclick=()=>csExchange(5);
 function csExchange(n){if((M.stars|0)<n){SFX.deny();return}M.stars-=n;csAdd(n*CS_RATE);saveMeta();SFX.buy();csWallet();csMsg(n+' ★ gegen '+n*CS_RATE+' Tokens getauscht.','ok')}
 $('csBack').onclick=()=>{if(CS.busy)return;renderMenu();showOv('ovMenu')};
-$('bCasino').onclick=()=>{SFX.click();openCasino()};
+$('bCasino').onclick=$('bCasino2').onclick=()=>{SFX.click();openCasino()};
 
 /* ---------- Ballraten: unter einem von drei Bechern liegt der Ball ---------- */
 function renderBall(G){
