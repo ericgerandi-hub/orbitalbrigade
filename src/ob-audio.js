@@ -20,7 +20,25 @@ const SFX=(()=>{
     const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
     return true;
   }
-  function unlock(){if(!init())return;if(ctx.state==='suspended')ctx.resume();startAmbient();musicInit()}
+  // Handy: Ton darf erst nach einer echten Berührung starten (Loslassen bzw. Tippen).
+  // iPhone: eine stille Audiospur schaltet auf „Wiedergabe“, damit der Lautlos-Schalter das Spiel nicht stumm macht.
+  let silentEl=null;
+  function iosPlayback(){
+    try{if(navigator.audioSession&&navigator.audioSession.type!=='playback')navigator.audioSession.type='playback'}catch(e){}
+    if(silentEl)return;
+    try{
+      const n=800,b=new ArrayBuffer(44+n),v=new DataView(b),w=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i))};
+      w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);
+      for(let i=0;i<n;i++)v.setUint8(44+i,128);
+      silentEl=document.createElement('audio');silentEl.setAttribute('playsinline','');silentEl.setAttribute('x-webkit-airplay','deny');silentEl.loop=true;silentEl.preload='auto';
+      silentEl.src=URL.createObjectURL(new Blob([b],{type:'audio/wav'}));const p=silentEl.play();if(p&&p.catch)p.catch(()=>{silentEl=null});
+    }catch(e){silentEl=null}
+  }
+  function unlock(){
+    if(!init())return;
+    if(ctx.state!=='running'){const r=ctx.resume();if(r&&r.catch)r.catch(()=>{})}
+    iosPlayback();startAmbient();musicInit();
+  }
   function setVolume(v){vol=Math.max(0,Math.min(100,Math.round(v)));if(vol>0)lastVol=vol;muted=vol===0;ls.set('orbitalbrigade-vol',String(vol));if(master)master.gain.setTargetAtTime(gainFor(),ctx.currentTime,.05)}
   function setMuted(m){setVolume(m?0:lastVol)}
   const ok=()=>ctx&&!muted&&ctx.state==='running';
@@ -347,5 +365,6 @@ const SFX=(()=>{
   function slowmo(k){if(!mus.lp)return;mus.lp.frequency.setTargetAtTime(700*Math.pow(18000/700,1-k),ctx.currentTime,.12)}
   return{speak,voicePreload,radio,mark,saw,rover,guided,dig,grab,meteor,alarm,blackout,pickup,ants,smash,slowSwoosh,music,setMusicVolume,get musicVolume(){return musicVol},slowmo,jet2,mg,unlock,setMuted,setVolume,get volume(){return vol},get muted(){return muted},weapon,boom,hit,death,roar,baseHit,overheat,ability,whistle,jet,laser,place,podFall,podOpen,thump,sentry,mortar,soldier,spit,click,buy,unlockJingle,deny,levelUp,horn,waveClear,gameOver,ambient};
 })();
-addEventListener('pointerdown',()=>SFX.unlock(),{capture:true});
-addEventListener('keydown',()=>SFX.unlock(),{capture:true});
+for(const ev of ['pointerdown','pointerup','touchend','click','keydown'])addEventListener(ev,()=>SFX.unlock(),{capture:true,passive:true});
+// Nach dem Zurückkehren in die App (z. B. Anruf, App-Wechsel) wieder anschalten, sobald man tippt
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)SFX.unlock()});
