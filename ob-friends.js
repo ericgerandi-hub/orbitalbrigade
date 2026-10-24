@@ -307,6 +307,12 @@ function mirApply(u,sc){
     if(h==null||typeof h!=='string'||h.length>300000){if(old){old.remove();delete MIR.nodes[k]}continue}
     const n=mirSanitize(h);if(!n||n.id!==k)continue;
     const orig=document.getElementById(k);if(!orig||orig.classList.contains('mir'))continue;
+    // Obere Leiste: eigene Knöpfe (Ton, Musik, Vollbild, Pause) bleiben bedienbar, nur die Anzeigen kommen vom Freund
+    if(k==='hudTop'){
+      const oc=Array.from(orig.children),nc=Array.from(n.children);
+      oc.forEach((c,i)=>{if(c.classList.contains('iconbtn')||c.id==='volPop'||!nc[i])return;const x=nc[i];x.classList.add('mirp');x.setAttribute('inert','');c.replaceWith(x)});
+      continue;
+    }
     n.classList.add('mir');n.setAttribute('inert','');n.setAttribute('aria-hidden','true');
     n.querySelectorAll('input,button,select,textarea').forEach(x=>x.tabIndex=-1);
     if(old)old.replaceWith(n);else orig.after(n);
@@ -327,6 +333,7 @@ function mirCursor(d){
   c.style.left=x+'px';c.style.top=y+'px';c.hidden=false;c.classList.toggle('down',!!d.d);
 }
 function mirClear(){
+  if(MIR.on)document.getElementById('hudTop').querySelectorAll('.mirp').forEach(x=>{x.classList.remove('mirp');x.removeAttribute('inert')});
   for(const k in MIR.nodes)MIR.nodes[k].remove();MIR.nodes={};MIR.on=false;document.body.classList.remove('mirroring');
   if(MIR.cur){MIR.cur.remove();MIR.cur=null}
 }

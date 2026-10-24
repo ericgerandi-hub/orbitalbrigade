@@ -67,6 +67,7 @@ function enemyDied(e){
   if(e.mut==='explode'){blast(p.clone().setY(1),0xff6a3d,3.4,.5);spark(p.clone().setY(.8),0xffb04a,16,9,7);SFX.boom(3,p);hurtFriendly(p,3.4,e.dmg*2.2)}
   if(e.mut==='split'){for(let i=0;i<2;i++){const c=spawnEnemy(e.type,p.x+(i?1.4:-1.4),p.z,false);c.noMut=true;c.hp=c.max=e.max*.35;c.g.scale.setScalar(.72);c.r*=.75}}
   if(!run||run.tut)return;
+  if(e.T.boss&&!(MP&&MP.role==='guest'))radio('Ziel ausgeschaltet. Gute Arbeit, Brigade!');
   run.combo=(run.combo||0)+1;run.comboT=2.6;
   const st=M.stats;st.kills++;if(e.T.boss)st.boss++;if(e.T.fly)st.fly++;if(e.pulled)st.grab++;
   if(comboMul()>=5)achGet('combo5');
@@ -85,11 +86,18 @@ function showCombo(c,m){
 
 /* ---------- Funksprüche vom Kommando ---------- */
 const radioQ=[];let radioT=0;
+// Eingesprochene Funksprüche des Kommandos (Dateien in voice/)
+const VOICE={"Ein Titan nähert sich. Alles, was wir haben, auf ihn!": "titan", "Brutkönigin gesichtet! Konzentriert das Feuer.": "koenigin", "Die Brutkönigin gräbt sich ein! Haltet Ausschau nach Bodenbewegungen.": "eingraben", "Sie ruft ihre Brut! Ein ganzer Schwarm kommt.": "brut", "Generator unter 30 %! Haltet die Linie!": "generator", "Munition der Bordkanone fast leer. Nachschub anfordern!": "munition", "Das Terraforming greift. Die Kolonie wächst, haltet durch!": "terra", "Flieger im Anflug! Sie fliegen einfach über Barrikaden und Minen.": "flieger", "Heiler-Käfer entdeckt! Sie reparieren andere Käfer. Zuerst ausschalten!": "heiler", "Bodenbewegungen! Wühler graben sich bis zum Generator durch.": "wuehler", "Achtung, Mutationen! Ein Symbol über dem Käfer zeigt seine Besonderheit.": "mutation", "Arche-Staffel startet. Jäger räumen den Luftraum frei.": "staffel", "Pelikan hat den Generator geflickt und kehrt zur Arche zurück.": "pelikan", "Neue Maschine an Bord: Jäger „Falke“. Startet beim nächsten Einsatz.": "neu_jaeger", "Neue Maschine an Bord: Bomber „Kondor“. Startet beim nächsten Einsatz.": "neu_bomber", "Neue Maschine an Bord: Kanonenboot „Sturmvogel“. Startet beim nächsten Einsatz.": "neu_gunship", "Neue Maschine an Bord: Bergungsflieger „Pelikan“. Startet beim nächsten Einsatz.": "neu_pelikan", "Ziel ausgeschaltet. Gute Arbeit, Brigade!": "bossweg", "Der Generator ist gefallen. Rückzug, Brigade!": "gefallen"};
+let voicePre=false;
+function voicePreload(){if(voicePre||typeof SFX.voicePreload!=='function')return;voicePre=true;SFX.voicePreload(Object.values(VOICE).map(k=>'voice/'+k+'.mp3'))}
 function radio(txt){if(radioQ.length<4&&!radioQ.includes(txt))radioQ.push(txt)}
 function firstSight(k,txt){if(!run||run.tut)return;run.seen=run.seen||{};if(run.seen[k])return;run.seen[k]=1;radio(txt)}
-function radioTick(dt){
-  radioT-=dt;const el=$('radio');
-  if(radioT<=0){if(radioQ.length){$('radioTxt').textContent=radioQ.shift();el.hidden=false;el.classList.remove('in');void el.offsetWidth;el.classList.add('in');radioT=4.2;SFX.radio()}else el.hidden=true}
+let radioLast=performance.now();
+function radioTick(){
+  const now=performance.now(),dt=Math.min(.25,(now-radioLast)/1000);radioLast=now;
+  if(paused)return;radioT-=dt;const el=$('radio');
+  if(radioT<=0){if(radioQ.length){const txt=radioQ.shift();$('radioTxt').textContent=txt;el.hidden=false;el.classList.remove('in');void el.offsetWidth;el.classList.add('in');radioT=4.2;SFX.radio();
+    const k=VOICE[txt];if(k&&typeof SFX.speak==='function')SFX.speak('voice/'+k+'.mp3',d=>{if(d>0)radioT=Math.max(radioT,d+.9)})}else el.hidden=true}
 }
 
 /* ---------- Jeden Frame ---------- */
@@ -97,6 +105,8 @@ let extraT=0;
 function extraTick(dt){
   radioTick(dt);
   if(!run)return;
+  afkTick();
+  if(!run.tut)voicePreload();
   if(run.comboT>0){run.comboT-=dt;if(run.comboT<=0)run.combo=0}
   if(!(MP&&MP.role==='guest'))showCombo(run.combo||0,comboMul());
   extraT-=dt;if(extraT>0)return;extraT=1;
@@ -206,3 +216,36 @@ function dailyEnd(){
 $('bDaily').onclick=openDaily;$('dyGo').onclick=startDaily;$('dyBack').onclick=()=>{renderMenu();showOv('ovMenu')};
 
 setTimeout(()=>{try{$('mVer').textContent='Version '+(typeof GAME_VER!=='undefined'?GAME_VER:'Chat')}catch(e){}},0);
+
+/* ---------- AFK: Wellen laufen allein weiter, Level-ups werden gesammelt ---------- */
+function afkAllowed(){return !!(run&&!run.tut&&phase!=='menu'&&phase!=='over'&&phase!=='spec'&&!(typeof isSwarm==='function'&&isSwarm())&&!(MP&&MP.spec))}
+function setAfk(on){
+  if(!run||!afkAllowed())return;run.afk=!!on;
+  if(on){
+    toast('AFK an: Wellen laufen automatisch weiter, Level-ups werden gesammelt');
+    if(phase==='shop'&&!$('ovRun').hidden){showOv(null);run.afkT=3}
+  }else{
+    const n=run.pending||0;
+    toast(n?'AFK aus: '+n+(n===1?' gesammeltes Level-up':' gesammelte Level-ups'):'AFK aus');
+    if(n>0&&$('ovLevel').hidden&&!guided&&(phase==='shop'||phase==='fight'))showLevelUp();
+    else if(phase==='shop'&&$('ovRun').hidden&&$('ovLevel').hidden)openRunShop(false);
+  }
+  afkUI();
+}
+function afkUI(){
+  const b=$('bAfk');if(!b)return;const ok=afkAllowed();b.hidden=!ok;if(!ok)return;
+  const n=run.pending||0;b.classList.toggle('on',!!run.afk);
+  b.innerHTML='AFK'+(run.afk&&n?'<small>'+n+' Lv</small>':'');
+  b.setAttribute('aria-pressed',run.afk?'true':'false');
+}
+$('bAfk').onclick=()=>setAfk(!(run&&run.afk));
+setInterval(afkUI,300);
+let afkLast=performance.now();
+function afkTick(){
+  const now=performance.now(),dt=Math.min(.25,(now-afkLast)/1000);afkLast=now;
+  if(paused||!run||!run.afk||phase!=='shop'||!$('ovRun').hidden)return;
+  if(MP&&MP.role==='guest'&&MP.ready===run.wave)return;
+  run.afkT=(run.afkT||3)-dt;
+  const s=Math.ceil(Math.max(0,run.afkT));if(s!==run.afkS){run.afkS=s;if(s>0)banner('AFK · Welle '+run.wave+' startet in '+s+' s')}
+  if(run.afkT<=0){run.afkT=3;if(MP)mpNext();else startWave()}
+}

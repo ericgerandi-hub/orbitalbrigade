@@ -297,12 +297,12 @@ function dstDamage(p,r,dmg){
     if(o.userData.dhp<=0)dstShatter(o);else if(!o.userData.wob){o.userData.wob=.25}}
 }
 // Einschlag einer Explosion
-function dstBoom(p,r,dmg){if(GFX.lv<2)return;dstDamage(p,r,Math.max(dmg,r*12));if(r>=2.2)dstCrater(p.x,p.z,r)}
+function dstBoom(p,r,dmg){if(GFX.lv<2)return;dstEnsureRun();dstDamage(p,r,Math.max(dmg,r*12));if(r>=2.2)dstCrater(p.x,p.z,r)}
 function dstHit(p,r,dmg){if(GFX.lv<2)return;dstDamage(p,Math.max(.6,r),dmg)}
+function dstEnsureRun(){const rr=typeof run!=='undefined'?run:null;if(DST.patch&&rr!==DST.run){DST.run=rr;dstFlatten();for(const f of DST.frags)scene.remove(f.m);DST.frags=[]}}
 function dstTick(dt){
   // neuer Run oder neue Karte: Boden glätten
-  const rr=typeof run!=='undefined'?run:null;
-  if(DST.patch&&(rr!==DST.run)){DST.run=rr;dstFlatten();for(const f of DST.frags)scene.remove(f.m);DST.frags=[]}
+  dstEnsureRun();
   if(DST.map!==MAP&&GFX.lv>=2){dstDecoInit();if(DST.patch)dstFlatten()}
   if(DST.dirty&&DST.patch){DST.dirty=false;const g=DST.patch.geometry;g.attributes.position.needsUpdate=g.attributes.color.needsUpdate=true;g.computeVertexNormals()}
   for(const o of decoGroup.children)if(o.userData.wob>0){o.userData.wob-=dt;o.rotation.z=Math.sin(o.userData.wob*60)*.05*o.userData.wob*4;if(o.userData.wob<=0)o.rotation.z=0}
