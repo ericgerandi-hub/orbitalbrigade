@@ -147,7 +147,8 @@ function carrierSim(dt,t){
   const apr=deckW(-1.5,7,-34),td=deckW(-1.5,1.9,-8);
   for(const pl of CV.pl){if(!pl)continue;
     pl.ff-=dt;pl.fb-=dt;pl.fg-=dt;
-    if(pl.st==='hangar'){if(pl.rearm>0)pl.rearm-=dt;else if(CV.catT<=0&&wantLaunch(pl))launch(pl);continue}
+    if(pl.st==='hangar'){if(pl.rearm>0)pl.rearm-=dt;else if(CV.catT<=0&&!run.cvRecall&&wantLaunch(pl))launch(pl);continue}
+    if(run.cvRecall&&pl.st==='fly')pl.st='return';
     if(pl.st==='launch'){
       pl.t+=dt;const k=Math.min(1,pl.t/.85),x=pl.c?-1.2:1.4;pl.p.copy(deckW(x,1.9,3.4+k*k*13));pl.yaw=shipYaw();pl.v=pl.A.sp*k;pl.roll=0;pl.pitch=0;
       if(rnd()<.6)spark(pl.p.clone(),0xffe9a8,1,2,1);
@@ -205,14 +206,16 @@ function carrierHud(on){
   const el=$('hangar');if(!el)return;
   if(!on||!play()||guided){el.hidden=true;return}
   el.hidden=false;el.classList.toggle('mp',!!MP);
-  let h='<span class="lbl">Hangar</span>';
+  el.classList.toggle('recall',!!run.cvRecall);
+  let h='<span class="lbl">'+(run.cvRecall?'Hangar · Rückruf':'Hangar')+'</span>';
   SQUAD.forEach(([type,w],i)=>{const pl=CV.pl[i],A=AC[type];
     if(!pl){if(i===CV.pl.length)h+=`<i class="hg lock" title="${A.cls} „${A.n}“ ab Welle ${w}"><b>${A.l}</b><small>W${w}</small></i>`;return}
     const st=pl.st==='hangar'?(pl.rearm>0?'rearm':'ready'):pl.st==='fly'?'fly':'move';
     const pct=st==='rearm'?100-pl.rearm/A.rearm*100:st==='fly'?pl.fuel/A.fuel*100:100;
     const txt={rearm:'wird aufmunitioniert',ready:'bereit an Deck',fly:'im Einsatz',move:pl.st==='launch'?'startet':'landet'}[st];
     h+=`<i class="hg ${st}" title="${A.cls} „${A.n}“: ${txt}"><b>${A.l}</b><u style="width:${Math.max(0,Math.min(100,pct))|0}%"></u></i>`});
-  el.innerHTML=h;
+  h+=`<button class="hgcmd" title="Staffel zurückrufen oder angreifen lassen">${run.cvRecall?'Angreifen':'Zurückrufen'}</button>`;
+  el.innerHTML=h;el.querySelector('.hgcmd').onclick=e=>{e.stopPropagation();cvToggle()};
 }
 
 /* ---------- Mehrspieler: Staffel des Mitspielers als Puppen ---------- */
@@ -304,7 +307,8 @@ function hjTick(dt){
   HJ.catT-=dt;
   const any=enemies.some(e=>visible(e)&&!e.T.nest);
   for(const j of HJ.list){j.ff-=dt;
-    if(j.st==='hangar'){if(j.rearm>0)j.rearm-=dt;else if(HJ.catT<=0&&any)hjLaunch(j);continue}
+    if(j.st==='hangar'){if(j.rearm>0)j.rearm-=dt;else if(HJ.catT<=0&&any&&!run.hjRecall)hjLaunch(j);continue}
+    if(run.hjRecall&&j.st==='fly')j.st='return';
     if(j.st==='launch'){j.t+=dt;const k=Math.min(1,j.t/.8);
       if(hjArche())j.p.copy(deckW(j.c?-1.2:1.4,1.9,3.4+k*k*13));
       else{const y=shipYaw();j.p.copy(hjBelly()).add(_cv2.set(Math.sin(y)*k*6,-k*3,Math.cos(y)*k*6))}
@@ -322,7 +326,8 @@ function hangarSlot(s){
   let air=0,sum=0,rel=0;
   for(const j of L){if(j.st==='hangar'){const r=j.rearm>0?1-j.rearm/Math.max(.1,R('hangar','reload')):1;sum+=r;if(j.rearm>0)rel++}else{air++;sum+=j.ammo/Math.max(1,j.am0)}}
   s.h.style.width=Math.round(sum/L.length*100)+'%';
-  s.k.textContent=air?air+' von '+L.length+' in der Luft':rel?'Lädt nach':L.length+(L.length>1?' Jets bereit':' Jet bereit');
+  s.b.classList.toggle('recall',!!run.hjRecall);
+  s.k.textContent=run.hjRecall?(air?'Kehren zurück':'Im Schiff · tippen'):air?air+' von '+L.length+' in der Luft':rel?'Lädt nach':L.length+(L.length>1?' Jets bereit':' Jet bereit');
 }
 
 /* =========================================================
@@ -381,8 +386,10 @@ function drTick(dt){
   DR.catT-=dt;DR.zap-=dt;
   const any=enemies.some(e=>visible(e)&&!e.T.nest);
   for(const j of DR.list){j.ff-=dt;
-    if(j.st==='hangar'){if(DR.catT<=0&&any)drLaunch(j);continue}
+    if(j.st==='hangar'){if(DR.catT<=0&&any&&!run.drRecall)drLaunch(j);continue}
+    if(run.drRecall&&j.st!=='ret'&&j.st!=='launch')j.st='ret';
     if(j.st==='launch'){j.t+=dt;const k=Math.min(1,j.t/.45),y=shipYaw();j.p.add(_cv2.set(Math.sin(j.yaw)*dt*14,-dt*7,Math.cos(j.yaw)*dt*14));j.v=j.A.sp*Math.max(.4,k);j.pitch=-.35*k;if(k>=1)j.st='fly'}
+    else if(j.st==='ret'){const tg=hjBelly();acSteer(j,tg,dt);j.heat=Math.max(0,j.heat-30*dt);if(j.p.distanceTo(tg)<4){j.st='hangar';j.heat=0;j.hot=false;if(j.g)scene.remove(j.g);spark(j.p.clone(),0xff5a6a,3,2,2)}}
     else drFly(j,dt);
     if(j.g){j.g.position.copy(j.p);j.g.rotation.set(-j.pitch,j.yaw,j.roll*1.3);if(j.hot&&rnd()<dt*8)spark(j.p.clone(),0x8a8a8a,1,1,2)}
   }
@@ -392,5 +399,15 @@ function droneSlot(s){
   const L=DR.list;if(!L.length){s.k.textContent='Bereit';s.h.style.width='0%';return}
   let air=0,hot=0,heat=0;for(const j of L){if(j.st!=='hangar')air++;if(j.hot)hot++;heat+=j.heat}
   s.h.style.width=Math.round(heat/L.length)+'%';s.b.classList.toggle('over',hot>L.length/2);
-  s.k.textContent=air?air+' Drohnen'+(hot?' · '+hot+' überhitzt':''):L.length+' Drohnen bereit';
+  s.b.classList.toggle('recall',!!run.drRecall);
+  s.k.textContent=run.drRecall?(air?'Kehren zurück':'Im Schiff · tippen'):air?air+' Drohnen'+(hot?' · '+hot+' überhitzt':''):L.length+' Drohnen bereit';
 }
+
+/* ---------- Rückruf: Jets, Drohnen und Arche-Staffel ins Schiff holen oder kämpfen lassen ---------- */
+function hangarToggle(id){
+  if(!run)return;
+  if(id==='hangar'){run.hjRecall=!run.hjRecall;toast(run.hjRecall?'Hangar-Jets: zurück ins Schiff':'Hangar-Jets: Angriff!')}
+  else if(id==='drohnen'){run.drRecall=!run.drRecall;toast(run.drRecall?'Drohnen: zurück ins Schiff':'Drohnen: Angriff!')}
+  SFX.click();updSlots();
+}
+function cvToggle(){if(!run)return;run.cvRecall=!run.cvRecall;toast(run.cvRecall?'Arche-Staffel: zurück zur Arche':'Arche-Staffel: Angriff!');SFX.click();CV.hudT=0}

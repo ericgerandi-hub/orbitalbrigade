@@ -151,6 +151,10 @@ canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;displa
 @media (prefers-reduced-motion:reduce){.combo.pop b{animation:none}}
 .hangar{position:absolute;z-index:4;left:10px;top:48px;display:flex;align-items:center;gap:3px;background:rgba(24,29,44,.85);border:1px solid var(--line);border-radius:4px;padding:3px 6px;pointer-events:auto;max-width:calc(100% - 110px);flex-wrap:wrap}
 .hangar.mp{top:118px}
+.hangar .hgcmd{margin-left:4px;background:#2a3044;border:1px solid var(--line);border-radius:3px;color:var(--ink);font:inherit;font-size:11px;padding:3px 7px;cursor:pointer}
+.hangar.recall .hgcmd{background:var(--yellow);color:#111;border-color:var(--yellow)}
+.hangar.recall .lbl{color:var(--yellow)}
+.slot.recall{border-color:#6a7288;opacity:.85}.slot.recall .sk{color:var(--yellow)}
 .hangar .lbl{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute,#9aa3b8);margin-right:3px}
 .hangar .hg{position:relative;width:22px;height:22px;display:grid;place-items:center;border-radius:3px;background:#2a3044;font-style:normal;overflow:hidden;cursor:default}
 .hangar .hg b{font-family:var(--display);font-size:12px;font-weight:400;color:#c8ccd6;z-index:1}
@@ -786,20 +790,20 @@ body.mirroring #specBar{z-index:70;opacity:.9}
 </div>
 
 <script src="lib/three.min.js?v=r128"></script>
-<script src="ob-data.js?v=2026-10-24t" charset="utf-8"></script>
-<script src="ob-world.js?v=2026-10-24t" charset="utf-8"></script>
-<script src="ob-post.js?v=2026-10-24t" charset="utf-8"></script>
-<script src="ob-gfx.js?v=2026-10-24t" charset="utf-8"></script>
-<script src="ob-audio.js?v=2026-10-24t" charset="utf-8"></script>
-<script src="ob-game.js?v=2026-10-24t" charset="utf-8"></script>
-<script src="ob-extra.js?v=2026-10-24t" charset="utf-8"></script>
-<script src="ob-carrier.js?v=2026-10-24t" charset="utf-8"></script>
-<script src="ob-casino.js?v=2026-10-24t" charset="utf-8"></script>
+<script src="ob-data.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-world.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-post.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-gfx.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-audio.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-game.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-extra.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-carrier.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-casino.js?v=2026-10-24u" charset="utf-8"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="ob-net.js?v=2026-10-24t" charset="utf-8"></script>
-<script src="ob-mp.js?v=2026-10-24t" charset="utf-8"></script>
-<script src="ob-vs.js?v=2026-10-24t" charset="utf-8"></script>
-<script src="ob-friends.js?v=2026-10-24t" charset="utf-8"></script>
-<script src="ob-pwa.js?v=2026-10-24t" charset="utf-8"></script>
+<script src="ob-net.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-mp.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-vs.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-friends.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-pwa.js?v=2026-10-24u" charset="utf-8"></script>
 </body>
 </html>

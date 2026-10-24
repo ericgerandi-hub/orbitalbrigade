@@ -1746,7 +1746,7 @@ function buildSlots(){
   });
   updSlots();
 }
-function selWeapon(id){if(!run||!run.weapons.includes(id))return;if(ITEMS[id].passive){toast('Der Hangar arbeitet von selbst: seine Jets greifen eigenständig an');return}run.sel=id;updSlots()}
+function selWeapon(id){if(!run||!run.weapons.includes(id))return;if(ITEMS[id].passive){if(typeof hangarToggle==='function')hangarToggle(id);return}run.sel=id;updSlots()}
 function updSlots(){
   if(!run)return;
   if(slotEls.c&&run.cmd){const c=run.cmd,sc=slotEls.c,cd=run.cd.cmd||0,mx=cmdStat('cd')||1;
@@ -1921,11 +1921,11 @@ $('bMetaClose').onclick=()=>{renderMenu();showOv('ovMenu')};
 /* ---------- Hauptmenü und Startwelle ---------- */
 function renderCmdTab(L){
   const id=metaCmd,it=ITEMS[id],own=!!M.cmdOwned[id],sel=M.cmdSel===id;
-  L.appendChild(el('div','note','Kommandanten sind ab Beginn jedes Runs auf dem Feld. Du kannst immer nur einen auswählen. Schick ihn mit „Bewegen“ oder per Rechtsklick an einen Ort.'));
+  L.appendChild(el('div','note','Kommandanten sind ab Beginn jedes Runs auf dem Feld. Du kannst immer nur einen auswählen oder mit „Abwählen“ ganz ohne Kommandant spielen. Schick ihn mit „Bewegen“ oder per Rechtsklick an einen Ort.'+(M.cmdSel&&M.cmdOwned[M.cmdSel]?' Gerade ausgewählt: '+ITEMS[M.cmdSel].name+'.':' Gerade: ohne Kommandant.')));
   const head=el('div','row',`<div class="nm">${it.name}<span class="lv">Fähigkeit: ${it.abil}</span></div><div class="ds">${it.desc}</div>`);
-  const b=el('button','buy'+(sel?' owned':''),!own?'Freischalten · '+it.stars+' ★':sel?'Ausgewählt':'Auswählen');
-  b.disabled=sel||(!own&&M.stars<it.stars);
-  b.onclick=()=>{if(!own){if(M.stars<it.stars)return;M.stars-=it.stars;M.cmdOwned[id]=1;SFX.unlockJingle()}M.cmdSel=id;saveMeta();renderMeta()};
+  const b=el('button','buy'+(sel?' owned':''),!own?'Freischalten · '+it.stars+' ★':sel?'Abwählen':'Auswählen');
+  b.disabled=!own&&M.stars<it.stars;
+  b.onclick=()=>{if(sel){M.cmdSel=null;saveMeta();SFX.click();toast('Du spielst jetzt ohne Kommandant');renderMeta();return}if(!own){if(M.stars<it.stars)return;M.stars-=it.stars;M.cmdOwned[id]=1;SFX.unlockJingle()}M.cmdSel=id;saveMeta();renderMeta()};
   head.appendChild(b);L.appendChild(head);
   if(!own)return;
   L.appendChild(el('div','grouph','Verbesserungen (Medaillen, bleiben bei Wiedergeburt)'));
