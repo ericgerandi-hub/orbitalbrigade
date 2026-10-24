@@ -5,7 +5,7 @@ Deutsches 3D-Browserspiel (three.js r128), Koop-Mehrspieler über PeerJS. Live: 
 ## Dateien
 - `src/` ist die Quelle. Hier wird geändert, nie direkt in den Dateien im Hauptordner.
   - `orbitalbrigade.html` – Seite (auch die Einzelspieler-Version als Claude-Artifact)
-  - `ob-data.js` Werte/Speicherstand, `ob-world.js` Szene/Modelle, `ob-audio.js` Ton/Musik, `ob-game.js` Spiellogik, `ob-extra.js` neue Gegner, Mutationen, Boss-Phasen, Combo, Funk, Erfolge, Tagesaufgabe, `ob-carrier.js` Fliegerstaffel der Arche, `ob-gfx.js` Grafikstufen (Normal/Hoch/Ultra), `ob-post.js` three.js-Nachbearbeitung (Bloom)
+  - `ob-data.js` Werte/Speicherstand, `ob-world.js` Szene/Modelle, `ob-audio.js` Ton/Musik, `ob-game.js` Spiellogik, `ob-extra.js` neue Gegner, Mutationen, Boss-Phasen, Combo, Funk, Erfolge, Tagesaufgabe, `ob-carrier.js` Fliegerstaffel der Arche, Hangar- und Drohnen-Waffe, `ob-casino.js` Casino (Ballraten, Slots, Black Jack), `ob-gfx.js` Grafikstufen (Normal/Hoch/Ultra), `ob-post.js` three.js-Nachbearbeitung (Bloom)
   - `ob-net.js` PeerJS-Verbindung, `ob-mp.js` Mehrspieler-Sync, `ob-vs.js` Modus „Schwarm gegen Brigade“, `ob-friends.js` Freundesliste (alle nur auf der Webseite geladen)
 - `src/build-site.py` baut daraus `index.html` und die JS-Dateien im Hauptordner.
 

@@ -17,7 +17,7 @@ const tmp=new THREE.Vector3(),tmp2=new THREE.Vector3(),tmp3=new THREE.Vector3(),
 let cmdBuffT=0;
 const laser={on:0,p:new THREE.Vector3()};
 const act={luft:null,barrage:null};
-const R=(id,k)=>val(id,k,run)*shipMul(id,k);
+const R=(id,k)=>val(id,k,run)*shipMul(id,k)*infMul(id,k);
 /* Mehrspieler (Logik in ob-mp.js) */
 let MP=null,enemySeq=0,structSeq=0;
 const FS0={get turrets(){return turrets},ship};let FS=FS0;
@@ -41,7 +41,7 @@ function lerpAngle(a,b,k){let d=b-a;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.P
 function wait(t,fn){later.push({t,fn,cos:COSMETIC})}
 
 /* ---------- Oberfläche: Helfer ---------- */
-const OVERLAYS=['ovAch','ovDaily','ovFriends','ovShip','ovEvo','ovMP','ovDevice','ovMenu','ovRebirth','ovReset','ovKeys','ovStartSel','ovMeta','ovRun','ovLevel','ovPause','ovOver'];
+const OVERLAYS=['ovCasino','ovAch','ovDaily','ovFriends','ovShip','ovEvo','ovMP','ovDevice','ovMenu','ovRebirth','ovReset','ovKeys','ovStartSel','ovMeta','ovRun','ovLevel','ovPause','ovOver'];
 function showOv(id){OVERLAYS.forEach(o=>$(o).hidden=o!==id)}
 let toastT=0;
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1600)}
@@ -1867,7 +1867,7 @@ $('bRunEnd').onclick=()=>endRun(false);
 
 /* ---------- Menü-Shop ---------- */
 let metaTab='weapon',metaSub='weapon';
-const META_TABS_BASE=[['ability','Fähigkeiten'],['weapon','Waffen'],['support','Unterstützung'],['base','Basis'],['upgrade','Verbesserungen']];
+const META_TABS_BASE=[['ability','Fähigkeiten'],['weapon','Waffen'],['support','Unterstützung'],['base','Basis'],['upgrade','Verbesserungen'],['inf','Unendlich']];
 let metaCmd='cmd_kom';
 const META_SUBS=[['weapon','Waffen'],['ability','Fähigkeiten'],['support','Unterstützung'],['general','Allgemein']];
 function renderMeta(){
@@ -1882,6 +1882,15 @@ function renderMeta(){
   if(metaTab==='upgrade')META_SUBS.forEach(([k,n])=>{const b=el('button','tab'+(metaSub===k?' on':''),n);b.onclick=()=>{metaSub=k;renderMeta()};sub.appendChild(b)});
   const L=$('metaList');L.innerHTML='';
   if(metaTab==='cmd'){renderCmdTab(L);return}
+  if(metaTab==='inf'){
+    L.appendChild(el('div','note','Winzige Boni, die du unendlich oft kaufen kannst. Jede Stufe wird teurer. Sie bleiben auch nach einer Wiedergeburt. Andere Upgrades bringen meist mehr.'));
+    for(const u of INF){const lv=(M.inf&&M.inf[u.k])|0,cost=infCost(u.k),pc=v=>(Math.round(v*1000)/10).toLocaleString('de-DE')+' %';
+      const row=el('div','row',`<div class="nm">${u.n}<span class="lv">Stufe ${lv}</span></div><div class="ds">${u.d}: +${pc(lv*u.per)} → +${pc((lv+1)*u.per)}</div>`);
+      const b=el('button','buy',fmt(cost)+' M');b.disabled=M.medals<cost;
+      b.onclick=()=>{const c=infCost(u.k);if(M.medals<c)return;M.medals-=c;M.inf=M.inf||{};M.inf[u.k]=((M.inf[u.k])|0)+1;saveMeta();SFX.buy();renderMeta()};
+      row.appendChild(b);L.appendChild(row)}
+    return;
+  }
   if(metaTab==='weapon'||metaTab==='ability'||metaTab==='support'){
     L.appendChild(el('div','note',{weapon:'Freigeschaltete Waffen können bei Level-ups im Run zur Auswahl kommen. Die Bordkanone hast du immer dabei.',ability:'Freigeschaltete Fähigkeiten hast du ab jedem Run sofort in der Leiste unten.',support:'Freigeschaltete Unterstützungen hast du ab jedem Run rechts unter den Waffen. Platzierte Gebäude bleiben, bis sie zerstört werden.'}[metaTab]));
     Object.values(ITEMS).filter(i=>i.kind===metaTab).sort((a,b)=>(a.rb||0)-(b.rb||0)).forEach(it=>{
@@ -1933,9 +1942,9 @@ function renderCmdTab(L){
   });
 }
 function renderRebirth(){
-  const can=M.best>=REBIRTH_MIN,gain=rebirthStars(M.best);
-  $('rbText').textContent=can?`Du startest von vorn, wirst aber dauerhaft stärker und bekommst ${gain} Sterne. Mit Sternen schaltest du Kommandanten und Verzauberungen frei.`
-    :`Erreiche in diesem Durchgang Welle ${REBIRTH_MIN}, um wiedergeboren zu werden. Dein Rekord gerade: Welle ${M.best}.`;
+  const can=M.best>=rbMin(),gain=rebirthStars(M.best);
+  $('rbText').textContent=can?`Du startest von vorn, wirst aber dauerhaft stärker und bekommst ${gain} Sterne. Mit Sternen schaltest du Kommandanten und Verzauberungen frei oder tauschst sie im Casino gegen Tokens. Die nächste Wiedergeburt braucht dann Welle ${Math.min(80,rbMin()+5)}.`
+    :`Erreiche in diesem Durchgang Welle ${rbMin()}, um wiedergeboren zu werden. Dein Rekord gerade: Welle ${M.best}.`;
   const s=$('rbSum');s.innerHTML='';const n=M.rebirths;
   [['Wiedergeburten',n+' → '+(n+1)],['Schaden',`+${n*25} % → +${(n+1)*25} %`],['Credits und Medaillen',`+${n*20} % → +${(n+1)*20} %`],['Sterne',M.stars+' → '+(M.stars+(can?gain:0))]]
     .forEach(([a,b])=>{s.appendChild(el('dt','',a));s.appendChild(el('dd','',b))});
@@ -1944,7 +1953,7 @@ function renderRebirth(){
 $('bRebirth').onclick=()=>{renderRebirth();showOv('ovRebirth')};
 $('rbBack').onclick=()=>{renderMenu();showOv('ovMenu')};
 $('rbGo').onclick=()=>{
-  if(M.best<REBIRTH_MIN)return;
+  if(M.best<rbMin())return;
   if(!$('rbGo').dataset.arm){$('rbGo').dataset.arm='1';$('rbGo').textContent='Wirklich? Tippe zum Bestätigen';return}
   const g=doRebirth();SFX.levelUp();toast(`Wiedergeburt ${M.rebirths}: +${g} Sterne`);renderMenu();showOv('ovMenu');
 };
@@ -1953,9 +1962,9 @@ function renderMenu(){
   $('mBest').textContent=M.best>0?`Rekord: Welle ${M.best}`:'Noch kein Rekord';
   $('bTut').textContent=M.tut?'Tutorial':'Tutorial (empfohlen)';
   $('bTut').className=M.tut?'btn ghost':'btn';$('bPlay').className=M.tut?'btn':'btn ghost';
-  $('bRebirth').hidden=!(M.rebirths>0||M.best>=REBIRTH_MIN-10);
-  $('bRebirth').textContent=M.best>=REBIRTH_MIN?'Wiedergeburt bereit':'Wiedergeburt';
-  $('bRebirth').className=M.best>=REBIRTH_MIN?'btn':'btn ghost';
+  $('bRebirth').hidden=!(M.rebirths>0||M.best>=rbMin()-10);
+  $('bRebirth').textContent=M.best>=rbMin()?'Wiedergeburt bereit':'Wiedergeburt';
+  $('bRebirth').className=M.best>=rbMin()?'btn':'btn ghost';
   $('mRebirth').hidden=!M.rebirths;
   $('mRebirth').textContent=`Wiedergeburt ${M.rebirths} · ${M.stars} Sterne · Schaden +${M.rebirths*25} %, Geld +${M.rebirths*20} %`+(M.cmdSel&&M.cmdOwned[M.cmdSel]?' · Kommandant: '+ITEMS[M.cmdSel].name:'');
   if(M.bestAll>M.best)$('mBest').textContent+=` · Allzeit: Welle ${M.bestAll}`;

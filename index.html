@@ -168,6 +168,33 @@ body.mirroring #specBar{z-index:70;opacity:.9}
 .afkbtn{padding:0 10px;font-size:13px;letter-spacing:.04em;color:var(--ink);white-space:nowrap}
 .afkbtn.on{background:var(--yellow);color:#111;border-color:var(--yellow)}
 .afkbtn small{font-family:inherit;font-size:11px;margin-left:5px;opacity:.85}
+.frcorner.bottom{top:auto;bottom:12px}
+.casino{max-width:560px}
+.cwal{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;color:var(--muted)}.cwal b{color:var(--yellow);font-size:17px;font-variant-numeric:tabular-nums}
+.cxch{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.cbets{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.cbets .lbl{margin-right:4px}
+.cbet{min-width:44px;padding:7px 10px;background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--ink);font:inherit;font-weight:700;cursor:pointer}
+.cbet.on{background:var(--yellow);color:var(--space);border-color:var(--yellow)}
+.cgame{display:flex;flex-direction:column;align-items:center;gap:12px;background:rgba(10,13,24,.6);border:1px solid var(--line);border-radius:6px;padding:14px;min-height:230px}
+.chint{font-size:13px;color:var(--muted);text-align:center;margin:0}
+.cmsg{text-align:center;font-weight:700;min-height:22px;margin:0}.cmsg.ok{color:#7cf0a8}.cmsg.bad{color:#ff8a7a}.cmsg.jack{color:var(--yellow);font-size:19px;animation:jack .6s ease-in-out 3}
+@keyframes jack{50%{transform:scale(1.12)}}
+.cups{display:flex;gap:18px;justify-content:center;padding-top:30px}
+.cup{position:relative;width:78px;height:96px;background:none;border:0;cursor:pointer;padding:0}
+.cup b{position:absolute;inset:0;background:linear-gradient(180deg,#c84a3a,#7a2418);border-radius:38px 38px 10px 10px;box-shadow:inset 0 -10px 0 rgba(0,0,0,.25),0 6px 12px rgba(0,0,0,.4);transition:transform .35s ease}
+.cup:hover b{filter:brightness(1.15)}.cup.pick b{outline:3px solid var(--yellow);outline-offset:3px}
+.cup .ball{position:absolute;left:50%;bottom:6px;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,#ffd23f 60%,#a07a00);opacity:0}
+.cup.has .ball{opacity:1}.cup.up b{transform:translateY(-62px)}
+.slot3{display:flex;gap:10px}
+.reel{width:76px;height:86px;display:grid;place-items:center;background:linear-gradient(180deg,#0b0e1a,#1c2236 50%,#0b0e1a);border:2px solid var(--line);border-radius:8px;font-size:46px;font-weight:700;font-family:Arial,sans-serif}
+.reel.spin{filter:blur(1.5px)}.reel.win{border-color:var(--yellow);box-shadow:0 0 14px rgba(255,210,63,.5)}
+.paytab{font-size:12px;color:var(--muted);text-align:center;line-height:1.6}
+.bjrow{width:100%;display:flex;flex-direction:column;gap:6px}
+.hand{display:flex;gap:6px;flex-wrap:wrap;min-height:72px}
+.pcard{width:50px;height:70px;border-radius:6px;background:#f4f1ea;color:#1a1d26;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Arial,sans-serif;box-shadow:0 3px 8px rgba(0,0,0,.4)}
+.pcard b{font-size:20px}.pcard i{font-style:normal;font-size:20px}.pcard.red{color:#c8283a}
+.pcard.back{background:repeating-linear-gradient(45deg,#2a3a7a 0 6px,#1c2858 6px 12px);border:2px solid #f4f1ea}
+.bjbtns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 .radio{position:absolute;z-index:4;left:10px;bottom:120px;max-width:min(360px,calc(100% - 110px));background:rgba(14,30,22,.92);border:1px solid #4fc07a;border-left:4px solid #4fc07a;border-radius:4px;padding:6px 10px;display:flex;flex-direction:column;gap:2px;font-size:13px;pointer-events:none}
 .radio .lbl{color:#7cf0a8}.radio.in{animation:rin .3s ease-out}
 @keyframes rin{0%{opacity:0;transform:translateX(-20px)}100%{opacity:1;transform:none}}
@@ -463,6 +490,7 @@ body.mirroring #specBar{z-index:70;opacity:.9}
     </div>
 
     <div class="overlay clear" id="ovMenu" hidden>
+      <button class="frcorner left bottom" id="bCasino" aria-label="Casino"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="3"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="13" cy="13" r="1.2" fill="currentColor"/><circle cx="10" cy="10" r="1.2" fill="currentColor"/></svg><span>Casino</span><span class="cnt" id="csCount"></span></button>
       <button class="frcorner left" id="bAch" aria-label="Erfolge"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h8v4a4 4 0 0 1-8 0z"/><path d="M6 5H3c0 2.5 1.5 4 3.5 4M14 5h3c0 2.5-1.5 4-3.5 4M10 11v3M7 17h6M8 14h4v3H8z"/></svg><span>Erfolge</span><span class="cnt" id="achCount">0</span></button>
       <button class="frcorner" id="bFriends" hidden aria-label="Freunde"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="7.5" cy="7" r="3"/><path d="M2 17c.6-3 2.8-4.6 5.5-4.6S12.4 14 13 17"/><circle cx="14" cy="6" r="2.4"/><path d="M14.5 11c2 .3 3.2 1.8 3.6 4.4"/></svg><span>Freunde</span><span class="badge" id="frBadge" hidden>0</span></button>
       <div class="stripe"></div>
@@ -572,6 +600,18 @@ body.mirroring #specBar{z-index:70;opacity:.9}
         <div class="phead"><h2>Erfolge</h2><button class="btn ghost sm" id="achClose">Schließen</button></div>
         <p class="hint">Jeder Erfolg schaltet eine neue Lackierung frei. Du wählst sie in der Schiffsauswahl.</p>
         <ul class="frlist achlist" id="achList"></ul>
+      </div>
+    </div>
+
+    <div class="overlay top" id="ovCasino" hidden>
+      <div class="frpanel casino">
+        <div class="phead"><h2>Casino</h2><button class="btn ghost sm" id="csBack">Zurück</button></div>
+        <div class="cwal"><span><b id="csTok">0</b> Tokens</span><span><b id="csStar">0</b> ★</span><span><b id="csMed">0</b> Medaillen</span></div>
+        <div class="cxch"><span>1 ★ = 20 Tokens</span><button class="btn ghost sm" id="csX1">1 ★ tauschen</button><button class="btn ghost sm" id="csX5">5 ★ tauschen</button></div>
+        <div class="tabs" id="csTabs"></div>
+        <div class="cbets" id="csBets"></div>
+        <div id="csGame" class="cgame"></div>
+        <p class="cmsg" id="csMsg"></p>
       </div>
     </div>
 
@@ -701,18 +741,19 @@ body.mirroring #specBar{z-index:70;opacity:.9}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="ob-data.js?v=2026-10-24n" charset="utf-8"></script>
-<script src="ob-world.js?v=2026-10-24n" charset="utf-8"></script>
-<script src="ob-post.js?v=2026-10-24n" charset="utf-8"></script>
-<script src="ob-gfx.js?v=2026-10-24n" charset="utf-8"></script>
-<script src="ob-audio.js?v=2026-10-24n" charset="utf-8"></script>
-<script src="ob-game.js?v=2026-10-24n" charset="utf-8"></script>
-<script src="ob-extra.js?v=2026-10-24n" charset="utf-8"></script>
-<script src="ob-carrier.js?v=2026-10-24n" charset="utf-8"></script>
+<script src="ob-data.js?v=2026-10-24o" charset="utf-8"></script>
+<script src="ob-world.js?v=2026-10-24o" charset="utf-8"></script>
+<script src="ob-post.js?v=2026-10-24o" charset="utf-8"></script>
+<script src="ob-gfx.js?v=2026-10-24o" charset="utf-8"></script>
+<script src="ob-audio.js?v=2026-10-24o" charset="utf-8"></script>
+<script src="ob-game.js?v=2026-10-24o" charset="utf-8"></script>
+<script src="ob-extra.js?v=2026-10-24o" charset="utf-8"></script>
+<script src="ob-carrier.js?v=2026-10-24o" charset="utf-8"></script>
+<script src="ob-casino.js?v=2026-10-24o" charset="utf-8"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="ob-net.js?v=2026-10-24n" charset="utf-8"></script>
-<script src="ob-mp.js?v=2026-10-24n" charset="utf-8"></script>
-<script src="ob-vs.js?v=2026-10-24n" charset="utf-8"></script>
-<script src="ob-friends.js?v=2026-10-24n" charset="utf-8"></script>
+<script src="ob-net.js?v=2026-10-24o" charset="utf-8"></script>
+<script src="ob-mp.js?v=2026-10-24o" charset="utf-8"></script>
+<script src="ob-vs.js?v=2026-10-24o" charset="utf-8"></script>
+<script src="ob-friends.js?v=2026-10-24o" charset="utf-8"></script>
 </body>
 </html>

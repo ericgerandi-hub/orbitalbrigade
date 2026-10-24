@@ -208,8 +208,10 @@ const ENCH={
   cmd_ing:[{k:'dr',n:'Panzerplatten',per:.02,max:5,d:'Alle Einheiten und der Generator nehmen weniger Schaden'},{k:'dmg',n:'Überladung',per:.03,max:5,d:'Mehr Schaden für alles'},{k:'cd',n:'Effizienz',per:.04,max:5,d:'Kürzere Abklingzeiten'},{k:'cr',n:'Recycling',per:.04,max:5,d:'Mehr Credits'}],
 };
 const enchCost=(lv)=>1+Math.floor(lv/2);
-const REBIRTH_MIN=25;
-const rebirthStars=best=>3+Math.max(0,Math.floor((best-REBIRTH_MIN)/10));
+// Nötige Welle für die Wiedergeburt: 25, danach +5 pro Wiedergeburt, höchstens 80
+const rbMin=()=>Math.min(80,25+5*(M.rebirths||0));
+// Sterne: höhere Wiedergeburten und mehr Wellen über der Grenze bringen mehr
+const rebirthStars=best=>Math.round((3+Math.max(0,Math.floor((best-rbMin())/10)))*(1+.35*(M.rebirths||0)));
 
 /* Benötigte Wiedergeburt: stärkere Waffen, Fähigkeiten und Unterstützungen kommen später */
 const RB={haubitze:1,plasma:1,railgun:3,luft:1,kryo:1,barrage:2,rakete:2,moerser:1,kaserne:1,graeber:1,rover:1,mech:2,marine:2};
@@ -220,7 +222,7 @@ const WEAPON_IDS=KIND_IDS('weapon'), ABILITY_IDS=KIND_IDS('ability'), SUPPORT_ID
 /* ---- Speicherstand ---- */
 const META_KEY='orbitalbrigade-meta-v2';
 const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
-function freshMeta(){return{shipSel:'bastion',medals:0,unlocked:{kanone:1,orbital:1,trupp:1},lv:{},best:0,runs:0,tut:0,rebirths:0,stars:0,bestAll:0,cmdOwned:{},cmdSel:null,ench:{}}}
+function freshMeta(){return{shipSel:'bastion',medals:0,unlocked:{kanone:1,orbital:1,trupp:1},lv:{},best:0,runs:0,tut:0,rebirths:0,stars:0,bestAll:0,cmdOwned:{},cmdSel:null,ench:{},tokens:0,inf:{}}}
 function loadMeta(){
   try{const d=JSON.parse(ls.get(META_KEY)||'null');if(d&&d.unlocked){const f=freshMeta();return Object.assign(f,d,{unlocked:Object.assign(f.unlocked,d.unlocked),lv:d.lv||{}})}}catch(e){}
   return freshMeta();
@@ -243,6 +245,28 @@ function setEqual(on){
 /* ---- Werte berechnen ---- */
 const lvKey=(id,k)=>id+'.'+k;
 function metaLv(id,k){return M.eq?0:(M.lv[lvKey(id,k)]||0)}
+/* Unendlichkeits-Upgrades: winzige Boni für Medaillen, beliebig oft kaufbar, bleiben bei der Wiedergeburt */
+const INF=[
+  {k:'dmg',n:'Feuerkraft',d:'Schaden aller Waffen',per:.004},
+  {k:'abil',n:'Orbitaltechnik',d:'Schaden von Fähigkeiten',per:.004},
+  {k:'hp',n:'Schildstärke',d:'Maximaler Generator-Schild',per:.004},
+  {k:'cd',n:'Bereitschaft',d:'Kürzere Abklingzeiten',per:.002},
+  {k:'cr',n:'Beuteanteil',d:'Mehr Credits',per:.003},
+  {k:'xp',n:'Kampferfahrung',d:'Mehr Erfahrung',per:.003},
+];
+const infLv=k=>M.eq?0:Math.max(0,(M.inf&&M.inf[k])|0);
+const infCost=k=>Math.round(120*Math.pow(1.16,Math.max(0,(M.inf&&M.inf[k])|0)));
+function infMul(id,k){
+  const it=ITEMS[id];if(!it||M.eq||!M.inf)return 1;
+  const f=(key)=>1+INF.find(x=>x.k===key).per*infLv(key);
+  if(it.kind==='weapon'&&(k==='dmg'||k==='dps'))return f('dmg');
+  if(it.kind==='ability'){if(k==='dmg'||k==='dps')return f('abil');if(k==='cd')return 1/f('cd')}
+  if(it.kind==='support'&&k==='cd')return 1/f('cd');
+  if(id==='basis'&&k==='maxhp')return f('hp');
+  if(id==='allg'&&k==='credits')return f('cr');
+  if(id==='allg'&&k==='xp')return f('xp');
+  return 1;
+}
 function runLv(run,id,k){return run?(run.lv[lvKey(id,k)]||0):0}
 function statAt(id,k,L){
   const st=STAT[k],b=ITEMS[id].base[k]??0;
@@ -276,7 +300,7 @@ const enchLv=(c,k)=>M.ench[c+'.'+k]||0;
 function enchSum(type){if(M.eq)return 0;const c=M.cmdSel;if(!c||!M.cmdOwned[c])return 0;return (ENCH[c]||[]).filter(e=>e.k===type).reduce((a,e)=>a+e.per*enchLv(c,e.k),0)}
 const rebirthDmg=()=>M.eq?1:1+.25*M.rebirths, rebirthMoney=()=>M.eq?1:1+.2*M.rebirths;
 function doRebirth(){
-  const gain=rebirthStars(M.best),keep={};
+  const gain=rebirthStars(M.best),keep={};M.tokens=M.tokens||0;M.inf=M.inf||{};
   for(const k in M.lv)if(k.startsWith('cmd_'))keep[k]=M.lv[k];
   M.rebirths++;M.stars+=gain;M.bestAll=Math.max(M.bestAll,M.best);
   M.medals=0;M.unlocked={kanone:1,orbital:1,trupp:1};M.lv=keep;M.best=0;
