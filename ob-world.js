@@ -342,7 +342,7 @@ ship.position.copy(SHIP_POS);ship.rotation.set(0.04,Math.PI-0.42,0.05);ship.scal
 const SHIPS=[
   {id:'bastion',name:'Bastion',cls:'Schlachtschiff',d:'Das bewährte Arbeitstier der Brigade. Ausgewogen, ohne Schwächen und ohne Extras.',m:{},tint:0xc8ccd6,glow:0x5fd0ff},
   {id:'hammer',name:'Hammerhai',cls:'Zerstörer',d:'Gebaut für maximale Feuerkraft. Für die Geschütze musste die Schildtechnik weichen.',m:{wdmg:1.25,wrate:1.1,hp:.75},tint:0xb8a8a8,glow:0xff7a4a},
-  {id:'arche',name:'Arche',cls:'Träger',d:'Ein fliegender Flugzeugträger. Vom Deck startet eine eigene Staffel aus Jägern, Bombern, Kanonenbooten und Bergungsfliegern. Truppen, Gebäude und Fahrzeuge kommen schneller aufs Feld.',perk:['Eigene Fliegerstaffel mit bis zu 8 Maschinen','Hangar-Waffe: +1 Jet, +35 % Schaden, mehr Munition, schneller nachladen'],m:{sup:.7,wdmg:.85},tint:0xb4bfa8,glow:0xffd23f},
+  {id:'arche',name:'Arche',cls:'Träger',d:'Ein fliegender Flugzeugträger. Vom Deck startet eine eigene Staffel aus Jägern, Bombern, Kanonenbooten und Bergungsfliegern. Truppen, Gebäude und Fahrzeuge kommen schneller aufs Feld.',perk:['Eigene Fliegerstaffel mit bis zu 8 Maschinen','Hangar-Waffe: +1 Jet, +35 % Schaden, mehr Munition, schneller nachladen','Drohnen-Hangar: +2 Drohnen, +20 % Schaden, kühlen schneller ab'],m:{sup:.7,wdmg:.85},tint:0xb4bfa8,glow:0xffd23f},
   {id:'aegis',name:'Aegis',cls:'Schildkreuzer',d:'Projiziert zusätzliche Energie in den Generator. Die Geschütze feuern etwas träger.',m:{hp:1.4,regen:1.5,wrate:.85},tint:0xa8c0d6,glow:0x7cf0ff},
   {id:'phantom',name:'Phantom',cls:'Tarnfregatte',d:'Experimentelle Orbitaltechnik: Fähigkeiten laden schneller und treffen härter.',m:{abil:.7,adm:1.2,wdmg:.9},tint:0x5a6070,glow:0xc77dff},
 ];
@@ -439,7 +439,12 @@ function acFan(g,x,y,z,r,list){
 }
 function makePlane(type){
   const g=new THREE.Group(),glows=[],fans=[];g.rotation.order='YXZ';
-  if(type==='jaeger'||type==='hjet'){const hj=type==='hjet';
+  if(type==='drohne'){
+    box(.32,.2,.9,hullMat,0,0,0,g);acNose(g,darkMat,.17,.5,.68);box(.2,.1,.3,new THREE.MeshBasicMaterial({color:0xff4a5a}),0,.06,.42,g);
+    acWings(g,hullMat,.75,.62,.2,.42,.05,0,-.05,.12);
+    [-1,1].forEach(sd=>{box(.05,.26,.24,darkMat,sd*.8,.08,-.38,g);box(.07,.07,.32,cyanMat,sd*.8,-.04,-.1,g)});
+    const gl=new THREE.Sprite(acGlowMat(0xff5a6a));gl.scale.set(.9,.9,1);gl.position.z=-.55;g.add(gl);glows.push(gl);
+  }else if(type==='jaeger'||type==='hjet'){const hj=type==='hjet';
     box(.55,.45,2.6,hullMat,0,0,0,g);acNose(g,hullMat,.3,1.1,1.85);
     box(.34,.2,.8,winMat,0,.3,.55,g);box(.58,.06,1.6,hj?cyanMat:yellowMat,0,.24,-.2,g);
     acWings(g,hullMat,1.75,1.5,.45,1.05,.08,-.05,-.2,.25);

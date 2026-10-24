@@ -1330,6 +1330,7 @@ function partnerShip(){return MP&&MP.P&&!MP.vs&&typeof MP.P.sh==='string'?shipBy
 function shipMul(id,k){
   if(!run||!run.ship)return 1;const it=ITEMS[id];if(!it)return 1;const m=shipMods(curShip());
   if(id==='hangar'){if(curShip().id!=='arche')return 1;return {dmg:1.35,ammo:1.3,reload:.6,speed:1.1}[k]||1}
+  if(id==='drohnen'){if(curShip().id!=='arche')return 1;return {dmg:1.2,cool:1.3,speed:1.1}[k]||1}
   if(it.kind==='weapon'){if(k==='dmg'||k==='dps')return m.wdmg||1;if(k==='rate')return m.wrate||1}
   else if(it.kind==='ability'){if(k==='cd')return m.abil||1;if(k==='dmg'||k==='dps')return m.adm||1}
   else if(it.kind==='support'){if(k==='cd')return (m.sup||1)*(run.rich?2:1)}
@@ -1755,7 +1756,7 @@ function updSlots(){
     sc.ab.style.setProperty('--cd',cd>0?(cd/mx).toFixed(3):0);sc.ab.classList.toggle('ready',cd<=0&&!c.dead&&play());
     sc.ak.textContent=cd>0?Math.ceil(cd)+' s':isPC?'Taste K':'Bereit'}
   for(const id in slotEls.w){const s=slotEls.w[id],h=run.heat[id]||0,over=!!run.over[id];
-    if(ITEMS[id].passive){if(typeof hangarSlot==='function')hangarSlot(s);continue}
+    if(ITEMS[id].passive){if(id==='drohnen'){if(typeof droneSlot==='function')droneSlot(s)}else if(typeof hangarSlot==='function')hangarSlot(s);continue}
     s.b.classList.toggle('sel',run.sel===id);s.b.classList.toggle('over',over);s.h.style.width=h+'%';
     s.k.textContent=over?'Überhitzt':isPC?'Taste '+s.key:(run.sel===id?'Aktiv':'');
     if(s.am){const r=run.ammoMax?run.ammo/run.ammoMax:1;s.am.style.width=(r*100)+'%';s.b.classList.toggle('empty',run.ammo<1);if(run.ammo<1)s.k.textContent='Leer';else if(!over)s.k.textContent=Math.ceil(run.ammo)+' Schuss'}}

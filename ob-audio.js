@@ -162,6 +162,7 @@ const SFX=(()=>{
   }
   function spit(p){if(!limit('spit',60))return;tone('sine',520,190,.12,.12,p);noise(.08,.07,'bandpass',1500,600,p,{q:3})}
   /* ---------- Oberfläche und Ablauf ---------- */
+  function zap(p){if(limit('zap',60))tone('sawtooth',2400,900,.05,.035,p,{lp:5000})}
   function click(){if(limit('click',30))tone('triangle',620,560,.035,.06,null)}
   function buy(){tone('triangle',880,1320,.07,.12,null);tone('triangle',1320,1320,.08,.1,null,{delay:.07})}
   function unlockJingle(){[523,659,784,1047].forEach((f,i)=>tone('triangle',f,f,.18,.12,null,{delay:i*.08}))}
@@ -363,7 +364,7 @@ const SFX=(()=>{
   }
   function setMusicVolume(v){musicVol=Math.max(0,Math.min(100,Math.round(v)));ls.set('orbitalbrigade-music',String(musicVol));if(mus.bus)mus.bus.gain.setTargetAtTime(musGain(),ctx.currentTime,.05)}
   function slowmo(k){if(!mus.lp)return;mus.lp.frequency.setTargetAtTime(700*Math.pow(18000/700,1-k),ctx.currentTime,.12)}
-  return{speak,voicePreload,radio,mark,saw,rover,guided,dig,grab,meteor,alarm,blackout,pickup,ants,smash,slowSwoosh,music,setMusicVolume,get musicVolume(){return musicVol},slowmo,jet2,mg,unlock,setMuted,setVolume,get volume(){return vol},get muted(){return muted},weapon,boom,hit,death,roar,baseHit,overheat,ability,whistle,jet,laser,place,podFall,podOpen,thump,sentry,mortar,soldier,spit,click,buy,unlockJingle,deny,levelUp,horn,waveClear,gameOver,ambient};
+  return{zap,speak,voicePreload,radio,mark,saw,rover,guided,dig,grab,meteor,alarm,blackout,pickup,ants,smash,slowSwoosh,music,setMusicVolume,get musicVolume(){return musicVol},slowmo,jet2,mg,unlock,setMuted,setVolume,get volume(){return vol},get muted(){return muted},weapon,boom,hit,death,roar,baseHit,overheat,ability,whistle,jet,laser,place,podFall,podOpen,thump,sentry,mortar,soldier,spit,click,buy,unlockJingle,deny,levelUp,horn,waveClear,gameOver,ambient};
 })();
 for(const ev of ['pointerdown','pointerup','touchend','click','keydown'])addEventListener(ev,()=>SFX.unlock(),{capture:true,passive:true});
 // Nach dem Zurückkehren in die App (z. B. Anruf, App-Wechsel) wieder anschalten, sobald man tippt

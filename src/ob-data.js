@@ -13,6 +13,7 @@ const STAT={
   cool:   {n:'Kühlung',m:'mul',s:.15,rMax:10,mMax:8,rc:30,mc:40,d:'Weniger Hitze pro Schuss, schnelleres Abkühlen'},
   twin:   {n:'Zusatzrohre',m:'add',s:1,rMax:3,mMax:2,rc:90,mc:140,d:'Ein weiteres Geschützrohr feuert mit'},
   ammo:   {n:'Magazin',m:'mul',s:.2,rMax:8,mMax:6,rc:35,mc:45,d:'Mehr Schuss, bevor Nachschub nötig ist'},
+  drones: {n:'Drohnen',m:'add',s:2,rMax:4,mMax:3,rc:70,mc:110,d:'Zwei Drohnen mehr im Schwarm'},
   count:  {n:'Anzahl',m:'add',s:1,rMax:4,mMax:3,rc:70,mc:110},
   fire:   {n:'Brandschaden',m:'add',s:8,rMax:8,mMax:5,rc:45,mc:60,d:'Getroffene Gegner brennen nach',u:' pro s'},
   aoe:    {n:'Sprengradius',m:'mul',s:.12,rMax:8,mMax:6,rc:40,mc:50},
@@ -96,6 +97,9 @@ def('weapon','plasma',{name:'Plasmawerfer',short:'Plasma',unlock:300,
 def('weapon','hangar',{name:'Hangar',short:'Hangar',unlock:260,passive:true,
   desc:'Startet eigene Jets, die selbstständig Gegner im Sturzflug angreifen. Ist die Munition eines Jets leer, fliegt er zurück und lädt kurz nach.',
   base:{dmg:9,count:1,ammo:36,reload:6,speed:1},stats:['count','dmg','ammo','reload','speed']});
+def('weapon','drohnen',{name:'Drohnen-Hangar',short:'Drohnen',unlock:300,passive:true,
+  desc:'Startet einen Schwarm kleiner, schneller Kampfdrohnen. Sie greifen im Sturzflug mit Lasern an und brauchen keine Munition, überhitzen aber schnell und kühlen dann kurz in der Luft ab.',
+  base:{dmg:2.6,drones:4,rate:12,cool:1,speed:1},stats:['drones','dmg','rate','cool','speed']});
 def('weapon','railgun',{name:'Railgun',short:'Rail',unlock:380,
   desc:'Durchschlägt alle Gegner in einer langen Linie.',
   base:{dmg:130,rate:.6,heat:40,cool:16,len:24},stats:['dmg','rate','cool','len']});

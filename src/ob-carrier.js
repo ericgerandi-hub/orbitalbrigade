@@ -11,6 +11,7 @@ const AC={
   gunship:{n:'Sturmvogel',cls:'Kanonenboot',l:'K',sp:11,turn:1.4,alt:11,fuel:26,rearm:9},
   pelikan:{n:'Pelikan',cls:'Bergungsflieger',l:'P',sp:13,turn:1.7,alt:7,fuel:20,rearm:24},
   hjet:{n:'Jet',cls:'Hangar-Jet',l:'H',sp:22,turn:2.6,alt:14,fuel:0,rearm:0},
+  drohne:{n:'Drohne',cls:'Kampfdrohne',l:'D',sp:30,turn:3.4,alt:12,fuel:0,rearm:0},
 };
 const AC_KEYS=Object.keys(AC);
 // Reihenfolge der Maschinen und ab welcher Welle sie zur Staffel stoßen
@@ -186,8 +187,8 @@ function unlockedN(){if(!run||run.tut)return SQUAD.length;let n=0;for(const s of
 
 function carrierTick(dt,t){
   const on=carrierOn();
-  hjTick(dt);
-  for(const j of HJ.list)if(j.g&&j.st!=='hangar')for(const g of j.g.userData.glows){const s=1.4*(1+Math.sin(t*30+j.i)*.15);g.scale.set(s,s,1)}
+  hjTick(dt);drTick(dt);
+  for(const j of HJ.list.concat(DR.list))if(j.g&&j.st!=='hangar')for(const g of j.g.userData.glows){const s=1.4*(1+Math.sin(t*30+j.i)*.15);g.scale.set(s,s,1)}
   if(on&&dt>0)carrierSim(dt,t);
   else if(!on&&CV.run){carrierReset();CV.run=null}
   // Propeller und Triebwerksleuchten der fliegenden Maschinen
@@ -217,6 +218,7 @@ function carrierHud(on){
 /* ---------- Mehrspieler: Staffel des Mitspielers als Puppen ---------- */
 function carrierSnap(){
   const a=[];
+  for(const j of DR.list)if(j.st!=='hangar')a.push(40+j.i,AC_KEYS.indexOf('drohne'),Math.round(j.p.x*10),Math.round(j.p.y*10),Math.round(j.p.z*10),Math.round(j.yaw*100),Math.round(j.roll*100),j.ff>0?1:0);
   for(const j of HJ.list)if(j.st!=='hangar')a.push(20+j.i,AC_KEYS.indexOf('hjet'),Math.round(j.p.x*10),Math.round(j.p.y*10),Math.round(j.p.z*10),Math.round(j.yaw*100),Math.round(j.roll*100),j.ff>0?1:0);
   if(!carrierOn())return a.length?a:null;
   for(const pl of CV.pl)if(pl&&pl.st!=='hangar')a.push(pl.i,AC_KEYS.indexOf(pl.type),Math.round(pl.p.x*10),Math.round(pl.p.y*10),Math.round(pl.p.z*10),Math.round(pl.yaw*100),Math.round(pl.roll*100),(pl.ff>0?1:0)|(pl.fb>0?2:0)|(pl.fg>0?4:0));
@@ -225,8 +227,8 @@ function carrierSnap(){
 function carrierPuppets(arr,dt){
   if(!Array.isArray(arr))return;CV.pupAt=performance.now();
   const seen=new Set(),host=MP&&MP.role==='host';
-  for(let k=0;k+7<arr.length&&k<160;k+=8){
-    const i=arr[k]|0,type=AC_KEYS[arr[k+1]|0];if(!type||i<0||i>31)continue;seen.add(i);
+  for(let k=0;k+7<arr.length&&k<480;k+=8){
+    const i=arr[k]|0,type=AC_KEYS[arr[k+1]|0];if(!type||i<0||i>79)continue;seen.add(i);
     let P=CV.pup[i];if(!P||P.type!==type){if(P)scene.remove(P.g);P=CV.pup[i]={type,g:makePlane(type),fresh:true,bT:0,gT:0};scene.add(P.g)}
     const tp=_cv.set(arr[k+2]/10,arr[k+3]/10,arr[k+4]/10),yaw=arr[k+5]/100,roll=arr[k+6]/100,fl=arr[k+7]|0;
     if(!isFinite(tp.x+tp.y+tp.z+yaw+roll))continue;
@@ -235,7 +237,7 @@ function carrierPuppets(arr,dt){
     else{P.g.position.lerp(tp,Math.min(1,dt*10));P.g.rotation.y=lerpAngle(P.g.rotation.y,yaw,Math.min(1,dt*10));P.g.rotation.z+=(roll-P.g.rotation.z)*Math.min(1,dt*8)}
     for(const f of P.g.userData.fans)f.rotation.y+=.6;
     const p=P.g.position,f=_cv2.set(Math.sin(yaw),0,Math.cos(yaw));
-    if(fl&1&&rnd()<.5){const ap=p.clone().addScaledVector(f,12+rnd()*5).setY(.6);tracer(p.clone().addScaledVector(f,1.6),ap,0xffe27a,1.5)}
+    if(fl&1&&rnd()<.5){const ap=p.clone().addScaledVector(f,12+rnd()*5).setY(.6);tracer(p.clone().addScaledVector(f,type==='drohne'?.8:1.6),ap,type==='drohne'?0xff4a6a:0xffe27a,type==='drohne'?1:1.5)}
     if(fl&2){P.bT-=dt;if(P.bT<=0){P.bT=.13;dropBomb(p,f.clone(),AC[type].sp,true);if(!host)CV.bombs[CV.bombs.length-1].quiet=true}}
     if(fl&4&&type==='gunship'){P.gT-=dt;if(P.gT<=0){P.gT=.55;const ap=p.clone().addScaledVector(f,6).setY(0);tracer(p.clone(),ap.clone().setY(.4),0xff9a3d,3);if(host)CV.shells.push({at:ap,t:.15,cosm:true})}}
     if(fl&4&&type==='pelikan')tracer(p.clone().setY(p.y-1),BASE.clone().setY(2.2),0x7cf0a8,4);
@@ -321,4 +323,74 @@ function hangarSlot(s){
   for(const j of L){if(j.st==='hangar'){const r=j.rearm>0?1-j.rearm/Math.max(.1,R('hangar','reload')):1;sum+=r;if(j.rearm>0)rel++}else{air++;sum+=j.ammo/Math.max(1,j.am0)}}
   s.h.style.width=Math.round(sum/L.length*100)+'%';
   s.k.textContent=air?air+' von '+L.length+' in der Luft':rel?'Lädt nach':L.length+(L.length>1?' Jets bereit':' Jet bereit');
+}
+
+/* =========================================================
+   Waffe „Drohnen-Hangar“: ein Schwarm kleiner Laserdrohnen.
+   Keine Munition, sehr hohe Feuerrate, überhitzen schnell und
+   kühlen dann kreisend in der Luft ab. Schneller als Jets.
+   ========================================================= */
+const DR={run:null,list:[],catT:0,zap:0};
+function dronesOn(){return !!(run&&!run.tut&&run.weapons.includes('drohnen')&&!isSwarm())}
+function drCount(){return Math.max(1,Math.round(R('drohnen','drones')))+(run.ship==='arche'?2:0)}
+function drReset(){for(const j of DR.list)if(j.g)scene.remove(j.g);DR.list=[];DR.run=run;DR.catT=0}
+function drNew(i){return{i,type:'drohne',A:{sp:30,turn:3.4,alt:12},st:'hangar',t:0,p:new THREE.Vector3(),yaw:0,roll:0,pitch:0,v:0,g:null,tg:null,mode:'climb',mt:0,fireT:0,heat:0,hot:false,ff:0,orb:rnd()*6.28}}
+function drLaunch(j){
+  j.st='launch';j.t=0;j.A.sp=30*R('drohnen','speed');j.A.turn=3.4;j.mode='climb';j.tg=null;j.heat=0;j.hot=false;
+  if(!j.g){j.g=makePlane('drohne');j.g.scale.setScalar(.85)}scene.add(j.g);j.g.visible=true;
+  j.p.copy(hjBelly()).add(_cv2.set((rnd()-.5)*3,0,(rnd()-.5)*3));j.yaw=shipYaw()+(rnd()-.5)*.6;DR.catT=.12;
+}
+function drFly(j,dt){
+  const p=j.p,cool=16*R('drohnen','cool');
+  j.heat=Math.max(0,j.heat-cool*dt*(j.hot?1.6:1));
+  if(j.hot){
+    // Überhitzt: hochziehen und kreisen, bis die Laser wieder kalt sind
+    j.orb+=dt*1.6;const c=j.tg&&targetable(j.tg)?j.tg.g.position:BASE;
+    acSteer(j,_cv.set(c.x+Math.cos(j.orb)*14,15,c.z+Math.sin(j.orb)*14),dt);
+    if(j.heat<=22){j.hot=false;j.mode='climb'}
+    return;
+  }
+  if(!j.tg||!targetable(j.tg)||(j.mode==='climb'&&rnd()<dt*.5)){const m=typeof markedTarget==='function'?markedTarget():null;j.tg=m&&targetable(m)&&rnd()<.5?m:pickFighter(p.clone().add(_cv2.set((rnd()-.5)*30,0,(rnd()-.5)*30)))}
+  const e=j.tg;
+  if(!e){acSteer(j,patrolPt(j,performance.now()/1000),dt);return}
+  const ep=e.g.position,hd=dist2D(p,ep),ang=Math.abs(angD(Math.atan2(ep.x-p.x,ep.z-p.z),j.yaw));
+  if(j.mode==='climb'){
+    acSteer(j,_cv.set(ep.x,12,ep.z),dt);
+    if(p.y>8&&hd<22&&hd>5&&ang<.45)j.mode='dive';
+  }else if(j.mode==='dive'){
+    acSteer(j,_cv.set(ep.x,1,ep.z),dt,j.A.sp*1.35,-26,3);
+    if(hd<16&&ang<.6){
+      j.fireT-=dt;const d=R('drohnen','dmg'),iv=1/R('drohnen','rate');
+      while(j.fireT<=0&&!j.hot){j.fireT+=iv;j.heat+=14;
+        const mz=p.clone().addScaledVector(acFwd(j),.8),ap=ep.clone().setY(e.T.fly?3.2:.5).add(_cv.set((rnd()-.5)*.8,0,(rnd()-.5)*.8));
+        tracer(mz,ap,rnd()<.5?0xff4a6a:0xff8a9a,1.1);if(rnd()<.25)spark(ap,0xff5a6a,1,3,2);hit(e,d,true);e.fl=.04;
+        if(j.heat>=100){j.hot=true;j.heat=100;spark(p.clone(),0xff7a3d,3,3,2)}}
+      j.ff=.3;if(DR.zap<=0){DR.zap=.07;SFX.zap&&SFX.zap(p)}
+    }
+    if(p.y<2.6||hd<2.5||ang>1.3){j.mode='pull';j.mt=.7}
+  }else{
+    j.mt-=dt;acSteer(j,p.clone().addScaledVector(acFwd(j),16).setY(12),dt);if(j.mt<=0)j.mode='climb';
+  }
+}
+function drTick(dt){
+  if(!dronesOn()){if(DR.list.length)drReset();DR.run=null;return}
+  if(DR.run!==run)drReset();
+  const n=drCount();while(DR.list.length<n)DR.list.push(drNew(DR.list.length));
+  if(!dt)return;
+  if(phase!=='fight'){for(const j of DR.list)if(j.st!=='hangar'){j.st='hangar';j.heat=0;j.hot=false;if(j.g)scene.remove(j.g)}return}
+  DR.catT-=dt;DR.zap-=dt;
+  const any=enemies.some(e=>visible(e)&&!e.T.nest);
+  for(const j of DR.list){j.ff-=dt;
+    if(j.st==='hangar'){if(DR.catT<=0&&any)drLaunch(j);continue}
+    if(j.st==='launch'){j.t+=dt;const k=Math.min(1,j.t/.45),y=shipYaw();j.p.add(_cv2.set(Math.sin(j.yaw)*dt*14,-dt*7,Math.cos(j.yaw)*dt*14));j.v=j.A.sp*Math.max(.4,k);j.pitch=-.35*k;if(k>=1)j.st='fly'}
+    else drFly(j,dt);
+    if(j.g){j.g.position.copy(j.p);j.g.rotation.set(-j.pitch,j.yaw,j.roll*1.3);if(j.hot&&rnd()<dt*8)spark(j.p.clone(),0x8a8a8a,1,1,2)}
+  }
+}
+// Anzeige im Waffenplatz: Drohnen in der Luft, Balken = Hitze
+function droneSlot(s){
+  const L=DR.list;if(!L.length){s.k.textContent='Bereit';s.h.style.width='0%';return}
+  let air=0,hot=0,heat=0;for(const j of L){if(j.st!=='hangar')air++;if(j.hot)hot++;heat+=j.heat}
+  s.h.style.width=Math.round(heat/L.length)+'%';s.b.classList.toggle('over',hot>L.length/2);
+  s.k.textContent=air?air+' Drohnen'+(hot?' · '+hot+' überhitzt':''):L.length+' Drohnen bereit';
 }
