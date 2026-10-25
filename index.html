@@ -217,6 +217,31 @@ body.mirroring #specBar{z-index:70;opacity:.9}
 .instl .ico img{border-radius:6px}
 .btn.install{border-color:#5fd0ff;color:#5fd0ff}
 .btn.share{border-color:#7cf0a8;color:#7cf0a8}
+#intro{position:fixed;inset:0;z-index:100;background:radial-gradient(ellipse at 50% 46%,#141a3a 0%,#05070f 70%);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:opacity .8s ease .1s;touch-action:manipulation}
+#intro canvas{position:absolute;inset:0;width:100%;height:100%}
+#intro.out{opacity:0;pointer-events:none}
+.iship{position:absolute;left:50%;top:46%;width:min(34vw,34vh,220px);aspect-ratio:1;transform:translate(-50%,120vh) scale(.3);animation:ishipIn 1.25s cubic-bezier(.16,.9,.3,1.12) .45s forwards;filter:drop-shadow(0 0 18px rgba(95,208,255,.45))}
+@keyframes ishipIn{to{transform:translate(-50%,-62%) scale(1)}}
+#intro.out .iship{animation:ishipOut .8s cubic-bezier(.6,0,.9,.4) forwards}
+@keyframes ishipOut{from{transform:translate(-50%,-62%) scale(1)}to{transform:translate(-50%,-260%) scale(.25)}}
+.iflame{transform-origin:50% 68%;animation:iflame .09s ease-in-out infinite alternate}
+@keyframes iflame{to{transform:scaleY(.72);opacity:.75}}
+.ishock{position:absolute;left:50%;top:46%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:3px solid rgba(255,210,63,.9);opacity:0;animation:ishock 1s ease-out 1.55s forwards}
+@keyframes ishock{0%{opacity:1;transform:scale(.2)}100%{opacity:0;transform:scale(28)}}
+.ititle{position:absolute;left:0;right:0;top:calc(46% + min(14vw,14vh,90px));text-align:center;padding:0 16px}
+.ititle h1{margin:0;font-family:var(--display);font-weight:400;color:#ffd23f;font-size:clamp(26px,7.4vw,64px);letter-spacing:.06em;text-shadow:0 0 22px rgba(255,210,63,.55),0 3px 0 #7a5a00;white-space:nowrap}
+.ititle h1 span{display:inline-block;opacity:0;transform:translateY(-38px) scale(1.6);filter:blur(6px);animation:iletter .5s cubic-bezier(.2,.9,.3,1.3) forwards}
+@keyframes iletter{to{opacity:1;transform:none;filter:none}}
+.ihaz{height:8px;width:0;margin:10px auto 0;max-width:min(80vw,520px);background:repeating-linear-gradient(135deg,#ffd23f 0 12px,#0b0e1a 12px 24px);border-radius:2px;animation:ihaz .7s ease-out 2.25s forwards}
+@keyframes ihaz{to{width:100%}}
+.isub{margin:12px 0 0;color:#9aa3bf;font-size:clamp(13px,3.4vw,17px);letter-spacing:.32em;text-transform:uppercase;opacity:0;animation:ifade .6s ease 2.6s forwards}
+@keyframes ifade{to{opacity:1}}
+.iload{position:absolute;left:50%;bottom:max(36px,env(safe-area-inset-bottom,0px));width:min(60vw,260px);height:3px;margin-left:calc(min(60vw,260px)/-2);background:rgba(154,163,191,.2);border-radius:2px;overflow:hidden}
+.iload i{display:block;height:100%;width:0;background:linear-gradient(90deg,#5fd0ff,#ffd23f);transition:width .2s linear}
+.iskip{position:absolute;left:0;right:0;bottom:max(12px,env(safe-area-inset-bottom,0px));margin:0;text-align:center;color:#6a7288;font-size:12px;opacity:0;transition:opacity .4s}
+.iskip.on{opacity:1}
+#intro.out .ititle,#intro.out .iload,#intro.out .iskip{opacity:0;transition:opacity .3s}
+@media (prefers-reduced-motion:reduce){.iship,.ititle h1 span,.ihaz,.isub,.ishock{animation-duration:.01s!important;animation-delay:0s!important}}
 .radio{position:absolute;z-index:4;left:10px;bottom:120px;max-width:min(360px,calc(100% - 110px));background:rgba(14,30,22,.92);border:1px solid #4fc07a;border-left:4px solid #4fc07a;border-radius:4px;padding:6px 10px;display:flex;flex-direction:column;gap:2px;font-size:13px;pointer-events:none}
 .radio .lbl{color:#7cf0a8}.radio.in{animation:rin .3s ease-out}
 @keyframes rin{0%{opacity:0;transform:translateX(-20px)}100%{opacity:1;transform:none}}
@@ -411,6 +436,51 @@ body.mirroring #specBar{z-index:70;opacity:.9}
 </style>
 </head>
 <body>
+<div id="intro" aria-hidden="true">
+  <canvas id="introStars"></canvas>
+  <div class="ishock"></div>
+  <div class="iship"><svg viewBox="0 0 100 100" width="100%" height="100%">
+    <defs><radialGradient id="igl"><stop offset="0" stop-color="#bff0ff"/><stop offset=".45" stop-color="#5fd0ff"/><stop offset="1" stop-color="#5fd0ff" stop-opacity="0"/></radialGradient></defs>
+    <ellipse class="iflame" cx="44" cy="80" rx="6" ry="13" fill="url(#igl)"/><ellipse class="iflame" cx="56" cy="80" rx="6" ry="13" fill="url(#igl)"/>
+    <polygon points="50,8 61,36 78,44 76,54 60,52 57,66 43,66 40,52 24,54 22,44 39,36" fill="#c8ccd6" stroke="#0b0e1a" stroke-width="1.2" stroke-linejoin="round"/>
+    <polygon points="50,14 55,34 50,40 45,34" fill="#ffd23f"/>
+    <line x1="30" y1="47" x2="41" y2="45" stroke="#ffd23f" stroke-width="2.4"/><line x1="70" y1="47" x2="59" y2="45" stroke="#ffd23f" stroke-width="2.4"/>
+  </svg></div>
+  <div class="ititle"><h1 id="introTitle"></h1><div class="ihaz"></div><p class="isub">Verteidige die Kolonie</p></div>
+  <div class="iload"><i id="introBar"></i></div>
+  <p class="iskip" id="introSkip">Tippen zum Überspringen</p>
+</div>
+<script>
+// Start-Intro: Warp-Sterne, einfliegendes Schiff, Titel. Läuft, bis das Spiel geladen ist (mindestens ~3,4 s), Tippen überspringt.
+(function(){
+  var I=document.getElementById('intro'),c=document.getElementById('introStars'),g=c.getContext('2d'),t0=performance.now(),loaded=false,done=false;
+  var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches,MIN=reduce?900:3400;
+  var W,H,D=devicePixelRatio>1?1.5:1,st=[];
+  function size(){W=c.width=innerWidth*D;H=c.height=innerHeight*D}
+  size();addEventListener('resize',size);
+  for(var i=0;i<380;i++)st.push({x:(Math.random()-.5)*2,y:(Math.random()-.5)*2,z:Math.random()});
+  var T='ORBITALBRIGADE',h=document.getElementById('introTitle');
+  for(var k=0;k<T.length;k++){var s=document.createElement('span');s.textContent=T[k];s.style.animationDelay=(1.35+k*.055)+'s';h.appendChild(s)}
+  function frame(now){
+    if(done)return;var t=(now-t0)/1000;
+    // Warp: schnell am Anfang, abbremsen, beim Ende wieder beschleunigen
+    var sp=t<1.1?2.2-1.5*(t/1.1):.7;if(I.classList.contains('out'))sp=3.4;
+    g.fillStyle='rgba(5,7,15,'+(t<.2?1:.35)+')';g.fillRect(0,0,W,H);
+    var cx=W/2,cy=H*.46,f=Math.min(W,H)*.9;
+    for(var i=0;i<st.length;i++){var p=st[i],z0=p.z;p.z-=.012*sp;if(p.z<=.02){p.x=(Math.random()-.5)*2;p.y=(Math.random()-.5)*2;p.z=1;continue}
+      var x=cx+p.x/p.z*f*.5,y=cy+p.y/p.z*f*.5,x2=cx+p.x/z0*f*.5,y2=cy+p.y/z0*f*.5,a=Math.min(1,(1-p.z)*1.4);
+      g.strokeStyle=i%9===0?'rgba(255,210,63,'+a+')':'rgba(200,225,255,'+a+')';g.lineWidth=(1-p.z)*2.4*D+.4;g.beginPath();g.moveTo(x2,y2);g.lineTo(x,y);g.stroke()}
+    var pr=Math.min(1,(now-t0)/MIN);document.getElementById('introBar').style.width=(loaded?pr:Math.min(pr,.9))*100+'%';
+    if(loaded&&now-t0>=MIN&&!I.classList.contains('out'))finish();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  function finish(){if(I.classList.contains('out'))return;I.classList.add('out');setTimeout(function(){done=true;I.remove()},reduce?250:900)}
+  addEventListener('load',function(){loaded=true;var k=document.getElementById('introSkip');if(k)k.classList.add('on')});
+  I.addEventListener('pointerdown',function(){if(loaded)finish()});
+  setTimeout(function(){loaded=true},12000);
+})();
+</script>
 <div id="app">
   <header class="hud" id="hudTop">
     <div class="stat"><span class="lbl">Welle</span><span class="val" id="hWave">1</span></div>
@@ -790,20 +860,20 @@ body.mirroring #specBar{z-index:70;opacity:.9}
 </div>
 
 <script src="lib/three.min.js?v=r128"></script>
-<script src="ob-data.js?v=2026-10-24u" charset="utf-8"></script>
-<script src="ob-world.js?v=2026-10-24u" charset="utf-8"></script>
-<script src="ob-post.js?v=2026-10-24u" charset="utf-8"></script>
-<script src="ob-gfx.js?v=2026-10-24u" charset="utf-8"></script>
-<script src="ob-audio.js?v=2026-10-24u" charset="utf-8"></script>
-<script src="ob-game.js?v=2026-10-24u" charset="utf-8"></script>
-<script src="ob-extra.js?v=2026-10-24u" charset="utf-8"></script>
-<script src="ob-carrier.js?v=2026-10-24u" charset="utf-8"></script>
-<script src="ob-casino.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-data.js?v=2026-10-25a" charset="utf-8"></script>
+<script src="ob-world.js?v=2026-10-25a" charset="utf-8"></script>
+<script src="ob-post.js?v=2026-10-25a" charset="utf-8"></script>
+<script src="ob-gfx.js?v=2026-10-25a" charset="utf-8"></script>
+<script src="ob-audio.js?v=2026-10-25a" charset="utf-8"></script>
+<script src="ob-game.js?v=2026-10-25a" charset="utf-8"></script>
+<script src="ob-extra.js?v=2026-10-25a" charset="utf-8"></script>
+<script src="ob-carrier.js?v=2026-10-25a" charset="utf-8"></script>
+<script src="ob-casino.js?v=2026-10-25a" charset="utf-8"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="ob-net.js?v=2026-10-24u" charset="utf-8"></script>
-<script src="ob-mp.js?v=2026-10-24u" charset="utf-8"></script>
-<script src="ob-vs.js?v=2026-10-24u" charset="utf-8"></script>
-<script src="ob-friends.js?v=2026-10-24u" charset="utf-8"></script>
-<script src="ob-pwa.js?v=2026-10-24u" charset="utf-8"></script>
+<script src="ob-net.js?v=2026-10-25a" charset="utf-8"></script>
+<script src="ob-mp.js?v=2026-10-25a" charset="utf-8"></script>
+<script src="ob-vs.js?v=2026-10-25a" charset="utf-8"></script>
+<script src="ob-friends.js?v=2026-10-25a" charset="utf-8"></script>
+<script src="ob-pwa.js?v=2026-10-25a" charset="utf-8"></script>
 </body>
 </html>
