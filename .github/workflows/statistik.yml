@@ -1,0 +1,20 @@
+name: Spieler-Statistik
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  zahlen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Zaehler abfragen
+        run: |
+          B=https://abacus.jasoncameron.dev
+          NS=orbitalbrigade-eg
+          HEUTE=$(TZ=Europe/Berlin date +%F)
+          g(){ v=$(curl -s -m 15 "$B/get/$NS/$1" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("value",0))' 2>/dev/null); echo "${v:-0}"; }
+          echo "OBSTAT datum=$HEUTE installs_gesamt=$(g installs) installs_heute=$(g installs-$HEUTE) spieler_heute=$(g spieler-$HEUTE) runden_heute=$(g runden-$HEUTE) geraete_gesamt=$(g geraete)"
+      - name: Test
+        run: |
+          curl -s -i -m 15 -H 'Origin: https://ericgerandi-hub.github.io' https://abacus.jasoncameron.dev/get/orbitalbrigade-eg/testzaehler | head -20
+          curl -s -i -m 15 -H 'Origin: https://ericgerandi-hub.github.io' https://abacus.jasoncameron.dev/hit/orbitalbrigade-eg/testzaehler | head -20
