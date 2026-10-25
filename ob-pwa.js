@@ -28,3 +28,21 @@ $('bShare').onclick=async()=>{
   try{await navigator.clipboard.writeText(SHARE_TXT+' '+SHARE_URL);toast('Link kopiert. Füge ihn einfach in WhatsApp oder Discord ein.')}
   catch(e){prompt('Diesen Link an deine Freunde schicken:',SHARE_URL)}
 };
+
+/* ---------- Anonyme Zählung: Installationen, Spieler pro Tag, Runden ----------
+   Es wird nur hochgezählt, keine Namen, keine Geräte-Kennung. Nur auf der echten Webseite. */
+const STAT_URL='https://abacus.jasoncameron.dev/hit/orbitalbrigade-eg/';
+const statDay=()=>{try{return new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Berlin'})}catch(e){return new Date().toISOString().slice(0,10)}};
+const statOn=/github\.io$/.test(location.hostname);
+function statHit(k){if(!statOn)return;try{fetch(STAT_URL+k,{mode:'cors',cache:'no-store',keepalive:true}).catch(()=>{})}catch(e){}}
+function statOnce(flag,keys){try{if(localStorage.getItem(flag))return;localStorage.setItem(flag,'1')}catch(e){return}keys.forEach(statHit)}
+function statInstall(){const d=statDay();statOnce('ob_st_inst',['installs','installs-'+d])}
+(function(){
+  const d=statDay();
+  statOnce('ob_st_dev',['geraete','geraete-'+d]);
+  statOnce('ob_st_day_'+d,['spieler-'+d]);
+  if(pwaInstalled())statInstall();
+  addEventListener('appinstalled',statInstall);
+  if(typeof startRun==='function'){const sr=startRun;startRun=function(){statHit('runden-'+statDay());return sr.apply(this,arguments)}}
+  try{for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&k.startsWith('ob_st_day_')&&k!=='ob_st_day_'+d)localStorage.removeItem(k)}}catch(e){}
+})();
