@@ -54,7 +54,7 @@ function enemySpecial(e,dt){
   }
   if(T.boss&&run&&!run.tut&&!(MP&&MP.role==='guest')){
     if(e.phase===0&&e.hp<e.max*.5){e.phase=1;radio('Die Brutkönigin gräbt sich ein! Haltet Ausschau nach Bodenbewegungen.');
-      const fd=fieldDims();digUnder(e,new THREE.Vector3((rnd()-.5)*1.6*fd.X,0,Math.max(BASE.z+24,Math.min(fd.ZF-6,p.z-6+(rnd()-.5)*10))));return true}
+      const fd=fieldDims(),dz=Math.max(BASE.z+24,Math.min(fd.ZF-6,p.z-6+(rnd()-.5)*10));digUnder(e,new THREE.Vector3((rnd()-.5)*1.6*fieldX(dz),0,dz));return true}
     if(e.phase===1&&e.hp<e.max*.25){e.phase=2;radio('Sie ruft ihre Brut! Ein ganzer Schwarm kommt.');SFX.roar(p);
       for(let i=0;i<12;i++){const a=i/12*6.28,ne=spawnEnemy(i<10?'schwarm':'kraul',p.x+Math.cos(a)*4,p.z+Math.sin(a)*4);ne.g.position.y=-1.2;ne.rise=.5+i*.04}
       blast(p.clone().setY(.2),0x8a3a6a,8,.6,true)}

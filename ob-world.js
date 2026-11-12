@@ -8,8 +8,13 @@ const rnd=Math.random;
 let COSMETIC=false;
 // Größe des Schlachtfelds: wächst nach jedem Boss (1 = Startgröße)
 let FIELD_K=1;
-// ZF wächst so schnell wie der sichtbare untere Bildrand, damit Gegner immer außerhalb des Bildes auftauchen
-function fieldDims(){return{X:23*FIELD_K,ZF:36+66*(FIELD_K-1),ZB:-42}}
+// Zusätzliche Verbreiterung des unteren Feldrands in hohen Wellen (0 = keine)
+let FIELD_W=0;
+// ZF wächst so schnell wie der sichtbare untere Bildrand, damit Gegner immer außerhalb des Bildes auftauchen.
+// Das Feld ist ein Trapez: oben an der Basis X breit, unten am Spawnrand XB breit.
+function fieldDims(){const X=23*FIELD_K;return{X,XB:X*(1+.6*(FIELD_K-1)+FIELD_W),ZF:36+66*(FIELD_K-1),ZB:-42}}
+// halbe Feldbreite auf Höhe z
+function fieldX(z){const d=fieldDims(),t=Math.max(0,Math.min(1,(z+36)/(d.ZF+36)));return d.X+(d.XB-d.X)*t}
 const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const cv=$('c');
 let renderer=null;
@@ -114,7 +119,8 @@ const skyMesh=new THREE.Mesh(new THREE.SphereGeometry(500,32,24),new THREE.MeshB
   const ring=new THREE.Mesh(new THREE.RingGeometry(44,62,64),new THREE.MeshBasicMaterial({color:0x9fb3c8,side:THREE.DoubleSide,transparent:true,opacity:.35,fog:false}));
   ring.position.copy(pl.position);ring.rotation.set(1.25,0.3,0.2);scene.add(ring);
 }
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(600,600),new THREE.MeshStandardMaterial({map:groundTex,roughness:1,metalness:0}));
+function bigPlane(n){const g=new THREE.PlaneGeometry(n,n),uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*n/600,uv.getY(i)*n/600);return g}
+const ground=new THREE.Mesh(bigPlane(1800),new THREE.MeshStandardMaterial({map:groundTex,roughness:1,metalness:0}));
 ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 const decoGroup=new THREE.Group();scene.add(decoGroup);
 function buildDeco(M){
@@ -173,7 +179,7 @@ const grassTex=canvasTex(512,512,(g,W,H)=>{
   g.putImageData(d,0,0);
 },14);
 const grassMat=new THREE.MeshStandardMaterial({map:grassTex,roughness:1,alphaTest:.99,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
-const grass=new THREE.Mesh(new THREE.PlaneGeometry(600,600),grassMat);
+const grass=new THREE.Mesh(bigPlane(1800),grassMat);
 grass.rotation.x=-Math.PI/2;grass.position.y=.02;grass.receiveShadow=true;grass.visible=false;scene.add(grass);
 
 const flora=[];
@@ -193,7 +199,7 @@ const flora=[];
     for(let i=0;i<n;i++){
       let x,z,k=0;do{[x,z]=area();k++}while(k<20&&((area.out&&inField(x,z))||Math.hypot(x-0,z+36)<8));
       const g=make();g.position.set(x,0,z);g.rotation.y=rnd()*6.28;g.visible=false;scene.add(g);
-      flora.push({g,th:thLo+rnd()*(thHi-thLo),s:sLo+rnd()*(sHi-sLo),k:0});
+      flora.push({g,th:thLo+rnd()*(thHi-thLo),s:sLo+rnd()*(sHi-sLo),k:-1,fk:1,inF:!area.out});
     }
   }
   const outside=()=>[(rnd()<.5?-1:1)*(25+rnd()*95),-170+rnd()*215];outside.out=true;
@@ -206,6 +212,50 @@ const flora=[];
   place(pine,25,behind,.3,1,1,1.7);
   place(leafy,15,behind,.25,.95,1,1.5);
 }
+/* ---------- Wald unten und an den Seiten: als Instanzen, damit es auch am Handy flüssig bleibt.
+   Bäume, die im (wachsenden) Schlachtfeld stehen würden, schrumpfen weg. ---------- */
+const FOREST=(()=>{
+  function merge(parts){let nv=0,ni=0;for(const g of parts){nv+=g.attributes.position.count;ni+=g.index.count}
+    const pos=new Float32Array(nv*3),nor=new Float32Array(nv*3),idx=new Uint32Array(ni);let ov=0,oi=0;
+    for(const g of parts){const P=g.attributes.position,N=g.attributes.normal;pos.set(P.array,ov*3);nor.set(N.array,ov*3);
+      for(let i=0;i<g.index.count;i++)idx[oi+i]=g.index.array[i]+ov;ov+=P.count;oi+=g.index.count}
+    const m=new THREE.BufferGeometry();m.setAttribute('position',new THREE.BufferAttribute(pos,3));m.setAttribute('normal',new THREE.BufferAttribute(nor,3));m.setIndex(new THREE.BufferAttribute(idx,1));return m}
+  const trunkG=new THREE.CylinderGeometry(.22,.34,1.8,6);trunkG.translate(0,.9,0);
+  const pineG=merge([[1.7,2.4,2.1],[1.3,2.1,3.3],[.85,1.8,4.4]].map(([r,h,y])=>{const c=new THREE.ConeGeometry(1,1,7);c.scale(r,h,r);c.translate(0,y,0);return c}));
+  const leafG=merge([[0,3,0,1.4],[.6,2.9,.3,1.2],[-.5,3.4,-.3,1.25]].map(([x,y,z,r])=>{const c=new THREE.DodecahedronGeometry(1,0).toNonIndexed();
+    const ix=[];for(let i=0;i<c.attributes.position.count;i++)ix.push(i);c.setIndex(ix);c.scale(r,r*.85,r);c.translate(x,y,z);c.computeVertexNormals();return c}));
+  const trees=[];const R=(()=>{let a=4242;return()=>{a=(a*1103515245+12345)&0x7fffffff;return a/0x7fffffff}})();
+  const tooClose=(x,z)=>Math.abs(x)<26&&z<48;
+  for(let i=0;i<1000;i++){let x,z,k=0;
+    do{if(i<720){x=(R()-.5)*600;z=40+R()*320}else{const sd=R()<.5?-1:1;z=-60+R()*120;x=sd*(110+R()*170)}k++}
+    while(k<20&&(tooClose(x,z)||trees.some(t=>Math.abs(t.x-x)+Math.abs(t.z-z)<3)));
+    trees.push({x,z,pine:R()<.55,s:.9+R()*.9,rot:R()*6.28,th:.05+R()*.85,col:R()*4|0})}
+  const nP=trees.filter(t=>t.pine).length,nL=trees.length-nP;
+  const trunkMat=new THREE.MeshStandardMaterial({color:0x5a3b26,roughness:1});
+  const leafMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.9,flatShading:true});
+  const mk=(g,m,n,col)=>{const im=new THREE.InstancedMesh(g,m,n);if(col){im.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(n*3).fill(1),3)}im.castShadow=true;im.receiveShadow=false;im.frustumCulled=false;im.count=0;scene.add(im);return im};
+  const trunks=mk(trunkG,trunkMat,trees.length),pines=mk(pineG,leafMat,nP,1),leafs=mk(leafG,leafMat,nL,1);
+  const cols=[0x2f6b32,0x3d7d3a,0x4f8f3f,0x2a5e3a].map(c=>new THREE.Color(c));
+  const M4=new THREE.Matrix4(),Q=new THREE.Quaternion(),V=new THREE.Vector3(),S=new THREE.Vector3(),UP=new THREE.Vector3(0,1,0);
+  let lastKey='';
+  function update(terra){
+    const key=terra.toFixed(3)+'|'+FIELD_K.toFixed(3)+'|'+FIELD_W.toFixed(3);if(key===lastKey)return;lastKey=key;
+    const d=fieldDims();let a=0,b=0,c=0;
+    for(const t of trees){
+      const kT=Math.max(0,Math.min(1,(terra-t.th)/.06));
+      // Abstand zum Feldrand: im Feld weg, knapp daneben klein
+      const out=Math.max(t.z-d.ZF-4,Math.abs(t.x)-fieldX(Math.min(t.z,d.ZF))-4,(-42-t.z));
+      const kF=Math.max(0,Math.min(1,out/6));
+      const k=kT*kF;if(k<=0.001)continue;const e=k*k*(3-2*k),sc=t.s*e;
+      Q.setFromAxisAngle(UP,t.rot);M4.compose(V.set(t.x,0,t.z),Q,S.set(sc,sc,sc));
+      trunks.setMatrixAt(a++,M4);
+      if(t.pine){pines.setMatrixAt(b,M4);pines.setColorAt(b,cols[t.col&1]);b++}else{leafs.setMatrixAt(c,M4);leafs.setColorAt(c,cols[1+(t.col%3)]);c++}
+    }
+    trunks.count=a;pines.count=b;leafs.count=c;
+    for(const m of [trunks,pines,leafs]){m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;m.visible=m.count>0}
+  }
+  return{update,trees};
+})();
 /* ---------- Kolonie: wächst mit dem Terraforming, Fenster leuchten nachts ---------- */
 const colonyWin=new THREE.MeshStandardMaterial({color:0xffe9a8,emissive:0xffd27a,emissiveIntensity:.2,roughness:.5});
 {
@@ -243,14 +293,28 @@ const colonyWin=new THREE.MeshStandardMaterial({color:0xffe9a8,emissive:0xffd27a
 let terraShown=-1,terraAlpha=-1;
 const _cA=new THREE.Color(),_cB=new THREE.Color();
 function lerpHex(a,b,k){return _cA.setHex(a).lerp(_cB.setHex(b),k).getHex()}
+// Bäume und Büsche außerhalb des Feldes verschwinden, wenn das Feld über sie wächst
+let floraKey='';
+function floraField(force){
+  const key=FIELD_K.toFixed(3)+'|'+FIELD_W.toFixed(3);if(key===floraKey&&!force)return false;floraKey=key;
+  const d=fieldDims();
+  for(const f of flora){if(f.col)continue;if(f.inF){f.fk=1;continue}const p=f.g.position;
+    const out=Math.max(p.z-d.ZF-2,Math.abs(p.x)-fieldX(Math.min(p.z,d.ZF))-2,-42-p.z);f.fk=Math.max(0,Math.min(1,out/5))}
+  return true;
+}
+function fieldDecoTick(){
+  if(floraField(false)&&terraShown>=0){const v=terraShown;terraShown=-1;setTerra(v)}
+  FOREST.update(terraShown<0?0:terraShown);
+}
 function setTerra(v){
   if(Math.abs(v-terraShown)<.0005)return;terraShown=v;
   grass.visible=v>.004;
   const a=Math.max(.02,1-v*1.05);
   grassMat.color.setHex(lerpHex(0x8a7448,0xffffff,Math.min(1,Math.pow(v*1.25,.8))));
   if(Math.abs(a-terraAlpha)>.015){terraAlpha=a;grassMat.alphaTest=a;grassMat.needsUpdate=true}
+  floraField(true);
   for(const f of flora){
-    const k=Math.max(0,Math.min(1,(v-f.th)/.06));
+    const k=Math.max(0,Math.min(1,(v-f.th)/.06))*(f.col?1:f.fk);
     if(k!==f.k){f.k=k;f.g.visible=k>0;const e=k*k*(3-2*k);f.g.scale.setScalar(Math.max(.001,f.s*e))}
   }
   ground.material.color.setHex(lerpHex(0xffffff,0xa9b88c,v));
@@ -278,7 +342,8 @@ function updateEnv(dt){
   _e2.setHex(0xffffff).lerp(_e3.setHex(0xff9a66),env.sunset*.75).lerp(_e3.setHex(0x26305a),1-L);
   _e1.setHex(lerpHex(MAP.fog,0x5d7f86,v)).multiply(_e2).lerp(_e3.setHex(0x5a6470).multiplyScalar(L),r*.45).lerp(_e3.setHex(0x9aa4a8).multiplyScalar(L),f*.6);
   scene.fog.color.copy(_e1);scene.background.copy(_e1);
-  scene.fog.near=(70-45*f-20*r)*FIELD_K;scene.fog.far=(230-130*f-60*r)*(.6+.4*FIELD_K);
+  const zm=typeof zoom==='number'?Math.max(1,zoom):1;
+  scene.fog.near=(70-45*f-20*r)*FIELD_K*zm;scene.fog.far=(230-130*f-60*r)*(.6+.4*FIELD_K)*zm*zm;
   sun.position.set(Math.cos(a)*90,Math.max(14,Math.abs(elev)*90),30);
   sun.intensity=1.35*(.12+.88*sm((elev+.05)/.35))*(1-.45*r)*(1-.35*f)+.12*(1-L);
   sun.color.setHex(lerpHex(lerpHex(0xffe0b5,0xff8a4a,env.sunset),0x8fa8ff,1-L));

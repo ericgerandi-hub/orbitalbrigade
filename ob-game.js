@@ -26,16 +26,20 @@ const vsOn=()=>!!(MP&&MP.vs),isSwarm=()=>!!(MP&&MP.vs&&((MP.role==='host')===(MP
 const actR={luft:null,barrage:null},laser2={on:0,p:new THREE.Vector3()};
 const beam2=beam.clone(),laserHit2=laserHit.clone();beam2.visible=laserHit2.visible=false;scene.add(beam2,laserHit2);
 
-const hpM=w=>1+0.22*(w-1)+0.004*(w-1)*(w-1);
-const dmgM=w=>1+0.05*(w-1);
-const rewM=w=>1+0.05*(w-1);
+// Härtefaktor: 1 in Welle 1, steigt quadratisch – Welle 25 ≈ 1,5, Welle 50 ≈ 3,2, Welle 100 ≈ 10
+const diffK=w=>1+9*Math.pow(Math.max(0,w-1)/99,2);
+const hpM=w=>(1+0.22*(w-1)+0.004*(w-1)*(w-1))*diffK(w);
+const dmgM=w=>(1+0.05*(w-1))*Math.pow(diffK(w),.6);
+const rewM=w=>(1+0.05*(w-1))*Math.pow(diffK(w),.3);
 const xpNeed=l=>Math.round(30+l*16+l*l*1.5);
 const dist2D=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const jit=s=>new THREE.Vector3((rnd()-.5)*s,0,(rnd()-.5)*s);
-const clampField=p=>{const d=fieldDims();p.x=Math.max(-d.X,Math.min(d.X,p.x));p.z=Math.max(d.ZB,Math.min(d.ZF,p.z));return p};
-function lanes(){const d=fieldDims();return[{x:-d.X*.9,z:d.ZF+1,j:3*FIELD_K},{x:0,z:d.ZF+5,j:6*FIELD_K},{x:d.X*.9,z:d.ZF+1,j:3*FIELD_K}]}
+const clampField=p=>{const d=fieldDims();p.z=Math.max(d.ZB,Math.min(d.ZF,p.z));const X=fieldX(p.z);p.x=Math.max(-X,Math.min(X,p.x));return p};
+function lanes(){const d=fieldDims(),j=d.XB/23;return[{x:-d.XB*.9,z:d.ZF+1,j:3*j},{x:0,z:d.ZF+5,j:6*j},{x:d.XB*.9,z:d.ZF+1,j:3*j}]}
 const laneOf=x=>x<-8*FIELD_K?0:x>8*FIELD_K?2:1;
 const fieldTargetK=w=>Math.min(2,1+.15*Math.floor((w-1)/5));
+// ab Welle 31 wird der untere Feldrand weiter verbreitert, bis Welle 81
+const fieldTargetW=w=>Math.min(.6,.012*Math.max(0,5*Math.floor((w-1)/5)-30));
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
 function lerpAngle(a,b,k){let d=b-a;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.PI)d+=Math.PI*2;return a+d*k}
 function wait(t,fn){later.push({t,fn,cos:COSMETIC})}
@@ -105,7 +109,7 @@ $('dMobile').classList.toggle('sug',!detectedPC);$('sugMobile').hidden=detectedP
    ========================================================= */
 let waveRng=rnd,specHook=null,specFx=null;
 // Wellen werden schon mit der Feldgröße geplant, die das Feld in dieser Welle erreicht
-function buildWave(w){const K0=FIELD_K;if(run&&!run.tut)FIELD_K=fieldTargetK(w);try{return buildWave0(w)}finally{FIELD_K=K0}}
+function buildWave(w){const K0=FIELD_K,W0=FIELD_W;if(run&&!run.tut){FIELD_K=fieldTargetK(w);FIELD_W=fieldTargetW(w)}try{return buildWave0(w)}finally{FIELD_K=K0;FIELD_W=W0}}
 function buildWave0(w){
   if(vsOn())return [];
   waveRng=run&&run.daily?seeded(run.daily.seed+w*7919):rnd;const rnd2=waveRng;
@@ -134,7 +138,7 @@ function buildWave0(w){
 }
 function spawnEnemy(type,x,z,easy){
   const T=ET[type],w=run.wave,b=T.nest?makeNest():makeBug(type);
-  const fd=fieldDims();b.g.position.set(Math.max(-fd.X-1,Math.min(fd.X+1,x)),0,z);scene.add(b.g);
+  const fx=fieldX(z)+1;b.g.position.set(Math.max(-fx,Math.min(fx,x)),0,z);scene.add(b.g);
   const hp=T.hp*(easy?1:hpM(w)*mpHp());
   const fz=run.ev&&run.ev.id==='frenzy'&&!easy?1.35:1;
   const e=Object.assign(b,{type,T,r:T.r,hp,max:hp,sp:T.sp*(.9+rnd()*.2)*(easy?.55:1)*fz,rew:T.rew*(easy?1:rewM(w)),dmg:T.dmg*(easy?1:dmgM(w)),
@@ -267,7 +271,7 @@ function ensureNests(){
   const want=Math.max(0,Math.min(5,Math.floor((fieldTargetK(run.wave)-1)/.15+.001)-1));
   let have=enemies.filter(e=>e.T.nest&&!e.dead).length;const d=fieldDims();
   for(let tries=0;have<want&&tries<40;tries++){
-    const x=(rnd()-.5)*1.6*d.X,z=d.ZF*.45+rnd()*(d.ZF*.5);
+    const z=d.ZF*.45+rnd()*(d.ZF*.5),x=(rnd()-.5)*1.6*fieldX(z);
     if(enemies.some(e=>e.T.nest&&Math.hypot(e.g.position.x-x,e.g.position.z-z)<9))continue;
     const n=spawnEnemy('nest',x,z);n.g.scale.setScalar(.01);n.grow=0;have++;
     spark(n.g.position.clone().setY(.5),0x6a3a2a,20,10,8);
@@ -477,7 +481,7 @@ function updateAbilities(dt,t){
   if(A.barrage){
     const a=A.barrage;a.t-=dt;a.next-=dt;
     if(a.next<=0&&a.t>0){a.next=.35;const tg=enemies.filter(visible);const e=tg.length?tg[rnd()*tg.length|0]:null;
-      const to=e?lead(e,.7).setY(0):new THREE.Vector3((rnd()-.5)*1.6*fieldDims().X,0,-24+rnd()*(fieldDims().ZF+20));
+      const to=e?lead(e,.7).setY(0):(z=>new THREE.Vector3((rnd()-.5)*1.6*fieldX(z),0,z))(-24+rnd()*(fieldDims().ZF+20));
       const d=R('barrage','dmg');SFX.whistle(to);shoot({from:new THREE.Vector3(to.x+(rnd()-.5)*10,90,to.z-20),to,dur:.7,geo:'shell',mat:'shell',trail:.6,onHit:p=>boom(p,3,d)})}
     if(a.t<=0)A.barrage=null;
   }
@@ -1057,7 +1061,7 @@ function dropMeteor(){
   const fd=fieldDims();let x,z;
   const vis=enemies.filter(e=>visible(e)&&!e.T.nest);
   if(vis.length&&rnd()<.55){const e=vis[rnd()*vis.length|0];x=e.g.position.x+(rnd()-.5)*4;z=e.g.position.z+(rnd()-.5)*4}
-  else{x=(rnd()-.5)*2*fd.X;z=BASE.z+12+rnd()*(fd.ZF-BASE.z-12)}
+  else{z=BASE.z+12+rnd()*(fd.ZF-BASE.z-12);x=(rnd()-.5)*2*fieldX(z)}
   const q=clampField(new THREE.Vector3(x,0,z));if(dist2D(q,BASE)<BASE_R+4)return;
   blast(q.clone().setY(.1),0xff3b3b,3.6,1.1,true);SFX.meteor(q);
   const from=q.clone().add(new THREE.Vector3(18+rnd()*10,70,-25)),dm=40+run.wave*9,fr=60+run.wave*3;
@@ -1089,7 +1093,7 @@ function collectSupply(){
 function removeSupply(){if(supply){scene.remove(supply.g);supply=null}}
 function spawnGold(){
   const fd=fieldDims(),side=rnd()<.5?-1:1;
-  const e=spawnEnemy('gold',side*(fd.X+1),BASE.z+20+rnd()*Math.max(4,fd.ZF-BASE.z-26));
+  const gz=BASE.z+20+rnd()*Math.max(4,fd.ZF-BASE.z-26),e=spawnEnemy('gold',side*(fieldX(gz)+1),gz);
   e.dir=-side;e.life=18;e.turns=0;banner('GOLDKÄFER<small>Erwisch ihn, bevor er entkommt</small>');SFX.pickup();
 }
 function goldTick(e,dt){
@@ -1099,8 +1103,8 @@ function goldTick(e,dt){
   e.g.rotation.y=Math.atan2(e.dir*sp,vz);
   e.step+=dt*sp*2.2;animLegs(e);
   if(rnd()<dt*6)spark(p.clone().setY(.8),0xffd23f,1,2,3);
-  if(e.dir*p.x>fd.X-1&&e.turns<1){e.turns++;e.dir*=-1}
-  if(e.dir*p.x>fd.X+1.5||e.life<=0){e.dead=true;toast('Der Goldkäfer ist entkommen')}
+  const gX=fieldX(p.z);if(e.dir*p.x>gX-1&&e.turns<1){e.turns++;e.dir*=-1}
+  if(e.dir*p.x>gX+1.5||e.life<=0){e.dead=true;toast('Der Goldkäfer ist entkommen')}
 }
 
 /* ---------- Lenkrakete: Bordkamera, mit der Maus gelenkt ---------- */
@@ -1141,7 +1145,7 @@ function updateGuided(rdt){
   if(rnd()<.8)spark(g.p.clone().addScaledVector(_rd,-1.8),boost?0xffd23f:0xff8a3d,1,1.5,1);
   SFX.guided(true,boost);
   $('rkAlt').textContent='Höhe '+Math.max(0,Math.round(g.p.y))+' m';$('rkFuel').style.width=Math.max(0,g.fuel/g.fuel0*100)+'%';
-  let boomNow=g.p.y<=.4||g.fuel<=0||(g.t>1.5&&(Math.abs(g.p.x)>fd.X+18||g.p.z>fd.ZF+25||g.p.z<SHIP_POS.z-15));
+  let boomNow=g.p.y<=.4||g.fuel<=0||(g.t>1.5&&(Math.abs(g.p.x)>fd.XB+18||g.p.z>fd.ZF+25||g.p.z<SHIP_POS.z-15));
   if(!boomNow)for(const e of enemies){if(!e.dead&&dist2D(e.g.position,g.p)<e.r+.7&&g.p.y<1.8*e.T.s+.6){boomNow=true;break}}
   if(boomNow)detonateGuided();
 }
@@ -1317,7 +1321,7 @@ function ammoEmptyHint(){if(performance.now()-ammoHintT<2500)return;ammoHintT=pe
 /* ---------- Spawnpunkte: vorn auf drei Bahnen, ab Welle 4 auch von den Seiten ---------- */
 function spawnPoint(w){
   const rr=waveRng,sideP=w>=4?Math.min(.32,.12+w*.006):0;
-  if(rr()<sideP){const d=fieldDims(),sd=rr()<.5?-1:1;return{x:sd*(d.X+1),z:BASE.z+20+rr()*Math.max(6,d.ZF-BASE.z-26)}}
+  if(rr()<sideP){const d=fieldDims(),sd=rr()<.5?-1:1,z=BASE.z+20+rr()*Math.max(6,d.ZF-BASE.z-26);return{x:sd*(fieldX(z)+1),z}}
   const ln=lanes()[rr()*3|0];return{x:ln.x+(rr()-.5)*2*ln.j,z:ln.z+rr()*2};
 }
 
@@ -1386,7 +1390,7 @@ const SCLS={rifle:{range:14,rate:.32},flamer:{range:5.5,rate:.12},rpg:{range:20,
 function slotPos(i){const R0=7+((i/9)|0)*2.2,k=i%9,a=.35+(Math.PI-.7)*(k+.5)/9;return new THREE.Vector3(BASE.x+Math.cos(a)*R0,0,BASE.z+Math.sin(a)*R0)}
 function fieldPos(i,z){return new THREE.Vector3((-17+(i%8)*4.8)*FIELD_K,0,z-((i/8)|0)*2.4)}
 // Stellung: rückt mit größerem Feld leicht nach vorne, die Einheiten verteilen sich dabei breiter und tiefer
-function patrolPos(i,t){const K=FIELD_K,sp=K*(1+.25*(K-1)),X=fieldDims().X*.95,mid=(36+BASE.z)/2+3+10*(K-1);
+function patrolPos(i,t){const K=FIELD_K,mid=(36+BASE.z)/2+3+10*(K-1),X=fieldX(mid)*.95,sp=K*(1+.25*(K-1))*fieldX(mid)/fieldDims().X;
   const x=Math.max(-X,Math.min(X,(-19+(i%9)*4.7)*sp+Math.sin(t*.35+i*1.7)*2.4));
   return new THREE.Vector3(x,0,mid-((i/9)|0)*3*(1+.6*(K-1))+Math.cos(t*.27+i)*1.4)}
 function nearestIn(p,list,filter){let b=null,bd=1e9;for(const e of list){if(filter&&!filter(e))continue;const d=dist2D(e.g.position,p);if(d<bd){bd=d;b=e}}return b}
@@ -1599,7 +1603,7 @@ function startRun(start,tut=false){
   if(!tut){run.dmgMul=rebirthDmg()*(1+enchSum('dmg'));run.crit=enchSum('crit');run.crMul=rebirthMoney()*(1+enchSum('cr'));run.mdMul=rebirthMoney();
     run.xpMul=1+enchSum('xp');run.dr=Math.min(.5,enchSum('dr'));run.cdMul=1-Math.min(.5,enchSum('cd'))}
   if(run.daily)dailyPost();
-  FIELD_K=fieldTargetK(start);
+  FIELD_K=fieldTargetK(start);FIELD_W=fieldTargetW(start);
   buildTurrets(1+Math.round(R('kanone','twin')));buildBaseGuns(MP&&MP.role==='guest'?0:Math.round(R('basis','turret')));
   if(!tut){M.runs++;saveMeta()}
   env.t=.16;env.rainT=env.fogT=0;
@@ -2080,7 +2084,7 @@ cv.addEventListener('pointerleave',ev=>{if(ev.pointerType==='mouse'&&!hold)mouse
 ['pointerup','pointercancel','lostpointercapture'].forEach(n=>cv.addEventListener(n,ev=>{hold=null;steer.boost=false;if(guided&&ev.pointerType!=='mouse'){steer.x=steer.y=0;$('rkDot').style.left=$('rkDot').style.top='50%'}}));
 addEventListener('keyup',e=>{if(e.key===' ')steer.kb=false});
 /* Zoom mit dem Mausrad: hinein auf den Mauszeiger, heraus bis etwas über die normale Ansicht */
-let zoom=1,zoomWant=1;const ZOOM_MIN=.35,ZOOM_MAX=1.3,zoomFocus=new THREE.Vector3();
+let zoom=1,zoomWant=1;const ZOOM_MIN=.35,ZOOM_MAX=1.7,zoomFocus=new THREE.Vector3();
 function zoomBy(f,ev){
   if(!run||guided)return;
   const before=zoomWant;zoomWant=Math.max(ZOOM_MIN,Math.min(ZOOM_MAX,zoomWant*f));
@@ -2136,6 +2140,7 @@ function update(dt,t){
   domeHit=Math.max(0,domeHit-dt*2);domeMat.opacity=.1+domeHit*.45+Math.sin(t*2)*.02;
   shake=Math.max(0,shake-dt*3);
   {const tk=run&&!run.tut?fieldTargetK(run.wave):1;FIELD_K+=(tk-FIELD_K)*Math.min(1,dt*1.2);
+   const tw=run&&!run.tut?fieldTargetW(run.wave):0;FIELD_W+=(tw-FIELD_W)*Math.min(1,dt*1.2);if(Math.abs(tw-FIELD_W)<1e-4)FIELD_W=tw;
    camLook.set(LOOK.x,LOOK.y,LOOK.z+40*(FIELD_K-1)*.45);
    camera.position.copy(CAM).sub(LOOK).multiplyScalar(FIELD_K).add(camLook);}
   camera.lookAt(camLook);
@@ -2153,7 +2158,7 @@ function update(dt,t){
   // Terraforming: ab Welle 10 wird der Planet grüner, voll grün ab etwa Welle 55
   {const target=run&&!run.tut?Math.max(0,Math.min(1,(run.wave-10+(phase==='fight'?Math.min(1,waveT/45):0))/45)):0;
    const cur=terraShown<0?0:terraShown,diff=target-cur;
-   if(Math.abs(diff)>.0005)setTerra(cur+Math.sign(diff)*Math.min(Math.abs(diff),dt*(Math.abs(diff)>.15?.25:.025)))}
+   if(Math.abs(diff)>.0005)setTerra(cur+Math.sign(diff)*Math.min(Math.abs(diff),dt*(Math.abs(diff)>.15?.25:.025)));fieldDecoTick()}
   if(orbT>0){orbT-=dt;orbCol.material.opacity=Math.max(0,orbT/.8)*.8}else orbCol.material.opacity=0;
   const showCross=!!(run&&play()&&mouse.p&&!halted);
   cross.visible=showCross&&!run.placing&&!guided;
