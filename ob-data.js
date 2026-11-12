@@ -222,7 +222,7 @@ const WEAPON_IDS=KIND_IDS('weapon'), ABILITY_IDS=KIND_IDS('ability'), SUPPORT_ID
 /* ---- Speicherstand ---- */
 const META_KEY='orbitalbrigade-meta-v2';
 const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
-function freshMeta(){return{shipSel:'bastion',medals:0,unlocked:{kanone:1,orbital:1,trupp:1},lv:{},best:0,runs:0,tut:0,rebirths:0,stars:0,bestAll:0,cmdOwned:{},cmdSel:null,ench:{},tokens:0,inf:{}}}
+function freshMeta(){return{shipSel:'bastion',medals:0,unlocked:{kanone:1,orbital:1,trupp:1},lv:{},best:0,runs:0,tut:0,rebirths:0,stars:0,bestAll:0,cmdOwned:{},cmdSel:null,ench:{},tokens:0,inf:{},prem:{}}}
 function loadMeta(){
   try{const d=JSON.parse(ls.get(META_KEY)||'null');if(d&&d.unlocked){const f=freshMeta();return Object.assign(f,d,{unlocked:Object.assign(f.unlocked,d.unlocked),lv:d.lv||{}})}}catch(e){}
   return freshMeta();
@@ -245,6 +245,12 @@ function setEqual(on){
 /* ---- Werte berechnen ---- */
 const lvKey=(id,k)=>id+'.'+k;
 function metaLv(id,k){return M.eq?0:(M.lv[lvKey(id,k)]||0)}
+/* Premium-Upgrades: die normalen Medaillen-Upgrades über die Höchststufe hinaus, unendlich oft,
+   jede Stufe kostet immer 1 Million Medaillen. Bleiben bei der Wiedergeburt. */
+const PREM_COST=1e6;
+const PREM_NO=['choices','slots','grip','legion','ring'];
+function premLv(id,k){return M.eq||!M.prem?0:(M.prem[lvKey(id,k)]||0)}
+function premOk(id,k){return STAT[k].mMax>0&&!PREM_NO.includes(k)}
 /* Unendlichkeits-Upgrades: winzige Boni für Medaillen, beliebig oft kaufbar, bleiben bei der Wiedergeburt */
 const INF=[
   {k:'dmg',n:'Feuerkraft',d:'Schaden aller Waffen',per:.004},
@@ -275,7 +281,7 @@ function statAt(id,k,L){
   if(k==='crit')v=Math.min(.6,v);
   return v;
 }
-function val(id,k,run){return statAt(id,k,metaLv(id,k)+runLv(run,id,k))}
+function val(id,k,run){return statAt(id,k,metaLv(id,k)+premLv(id,k)+runLv(run,id,k))}
 function fmtStat(k,v){
   const st=STAT[k];
   if(MECH_W.includes(k))return v<.5?'nicht angebaut':'Stufe '+Math.round(v);
@@ -300,7 +306,7 @@ const enchLv=(c,k)=>M.ench[c+'.'+k]||0;
 function enchSum(type){if(M.eq)return 0;const c=M.cmdSel;if(!c||!M.cmdOwned[c])return 0;return (ENCH[c]||[]).filter(e=>e.k===type).reduce((a,e)=>a+e.per*enchLv(c,e.k),0)}
 const rebirthDmg=()=>M.eq?1:1+.25*M.rebirths, rebirthMoney=()=>M.eq?1:1+.2*M.rebirths;
 function doRebirth(){
-  const gain=rebirthStars(M.best),keep={};M.tokens=M.tokens||0;M.inf=M.inf||{};
+  const gain=rebirthStars(M.best),keep={};M.tokens=M.tokens||0;M.inf=M.inf||{};M.prem=M.prem||{};
   for(const k in M.lv)if(k.startsWith('cmd_'))keep[k]=M.lv[k];
   M.rebirths++;M.stars+=gain;M.bestAll=Math.max(M.bestAll,M.best);
   M.medals=0;M.unlocked={kanone:1,orbital:1,trupp:1};M.lv=keep;M.best=0;

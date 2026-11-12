@@ -263,7 +263,11 @@ function carrierPuppets(arr,dt){
 const HJ={run:null,list:[],catT:0,c:0};
 function hangarOn(){return !!(run&&!run.tut&&run.weapons.includes('hangar')&&!isSwarm())}
 function hjArche(){return ship.userData.shipId==='arche'}
-function hjCount(){return Math.max(1,Math.round(R('hangar','count')))+(run.ship==='arche'?1:0)}
+// Jets und Drohnen: unendlich per Premium, aber höchstens HJ_MAX/DR_MAX echte Flieger. Der Rest steckt als Schaden in den vorhandenen.
+const HJ_MAX=30,DR_MAX=80;
+function hjRaw(){return Math.max(1,Math.round(R('hangar','count')))+(run.ship==='arche'?1:0)}
+function hjCount(){return Math.min(HJ_MAX,hjRaw())}
+function hjMul(){return Math.max(1,hjRaw()/HJ_MAX)}
 function hjReset(){for(const j of HJ.list)if(j.g)scene.remove(j.g);HJ.list=[];HJ.run=run;HJ.catT=0}
 function hjBelly(){return deckW(0,-1.4,-3)}
 function hjNew(i){return{i,type:'hjet',A:{sp:22,turn:2.6,alt:14},st:'hangar',rearm:0,t:0,p:new THREE.Vector3(),yaw:0,roll:0,pitch:0,v:0,g:null,tg:null,mode:'climb',mt:0,fireT:0,ammo:0,am0:1,ff:0}}
@@ -286,7 +290,7 @@ function hjFly(j,dt){
   }else if(j.mode==='dive'){
     acSteer(j,_cv.set(ep.x,1,ep.z),dt,j.A.sp*1.3,-22,2.6);
     if(hd<20&&ang<.5){
-      j.fireT-=dt;const d=R('hangar','dmg');
+      j.fireT-=dt;const d=R('hangar','dmg')*hjMul();
       while(j.fireT<=0&&j.ammo>0){j.fireT+=.09;j.ammo--;
         const mz=p.clone().addScaledVector(acFwd(j),1.6),ap=ep.clone().setY(e.T.fly?3.2:.5).add(_cv.set((rnd()-.5)*1.2,0,(rnd()-.5)*1.2));
         tracer(mz,ap,0x9fe8ff,1.5);if(rnd()<.35)spark(ap,0x5fd0ff,1,4,3);hitNear(ap,1.1,d)}
@@ -337,7 +341,9 @@ function hangarSlot(s){
    ========================================================= */
 const DR={run:null,list:[],catT:0,zap:0};
 function dronesOn(){return !!(run&&!run.tut&&run.weapons.includes('drohnen')&&!isSwarm())}
-function drCount(){return Math.max(1,Math.round(R('drohnen','drones')))+(run.ship==='arche'?2:0)}
+function drRaw(){return Math.max(1,Math.round(R('drohnen','drones')))+(run.ship==='arche'?2:0)}
+function drCount(){return Math.min(DR_MAX,drRaw())}
+function drMul(){return Math.max(1,drRaw()/DR_MAX)}
 function drReset(){for(const j of DR.list)if(j.g)scene.remove(j.g);DR.list=[];DR.run=run;DR.catT=0}
 function drNew(i){return{i,type:'drohne',A:{sp:30,turn:3.4,alt:12},st:'hangar',t:0,p:new THREE.Vector3(),yaw:0,roll:0,pitch:0,v:0,g:null,tg:null,mode:'climb',mt:0,fireT:0,heat:0,hot:false,ff:0,orb:rnd()*6.28}}
 function drLaunch(j){
@@ -365,7 +371,7 @@ function drFly(j,dt){
   }else if(j.mode==='dive'){
     acSteer(j,_cv.set(ep.x,1,ep.z),dt,j.A.sp*1.35,-26,3);
     if(hd<16&&ang<.6){
-      j.fireT-=dt;const d=R('drohnen','dmg'),iv=1/R('drohnen','rate');
+      j.fireT-=dt;const d=R('drohnen','dmg')*drMul(),iv=1/R('drohnen','rate');
       while(j.fireT<=0&&!j.hot){j.fireT+=iv;j.heat+=14;
         const mz=p.clone().addScaledVector(acFwd(j),.8),ap=ep.clone().setY(e.T.fly?3.2:.5).add(_cv.set((rnd()-.5)*.8,0,(rnd()-.5)*.8));
         tracer(mz,ap,rnd()<.5?0xff4a6a:0xff8a9a,1.1);if(rnd()<.25)spark(ap,0xff5a6a,1,3,2);hit(e,d,true);e.fl=.04;

@@ -21,6 +21,8 @@ const R=(id,k)=>val(id,k,run)*shipMul(id,k)*infMul(id,k);
 /* Mehrspieler (Logik in ob-mp.js) */
 let MP=null,enemySeq=0,structSeq=0;
 const FS0={get turrets(){return turrets},ship};let FS=FS0;
+// so viele Geschütze werden höchstens sichtbar angebaut, darüber gibt es nur mehr Kugeln
+const TWIN_VIS=6,BGUN_VIS=6;
 const mpHp=()=>MP&&!MP.vs?1.75:1,mpCount=()=>MP&&!MP.vs?1.3:1;
 const vsOn=()=>!!(MP&&MP.vs),isSwarm=()=>!!(MP&&MP.vs&&((MP.role==='host')===(MP.swarmSide==='h')));
 const actR={luft:null,barrage:null},laser2={on:0,p:new THREE.Vector3()};
@@ -209,6 +211,7 @@ function updateOnScreen(){
   for(const e of enemies){_vp.set(e.g.position.x,1,e.g.position.z);e.onScreen=frustum.containsPoint(_vp)}
 }
 function frontEnemy(){let b=null,bd=1e9;for(const e of enemies){if(!targetable(e))continue;const d=dist2D(e.g.position,BASE);if(d<bd){bd=d;b=e}}return b}
+function randEnemyNear(p,maxD){let n=0,b=null;for(const e of enemies){if(!targetable(e)||dist2D(e.g.position,p)>maxD)continue;if(rnd()*++n<1)b=e}return b}
 function nearestEnemy(p,maxD){let b=null,bd=maxD;for(const e of enemies){if(!targetable(e))continue;const d=dist2D(e.g.position,p)-e.r*.5;if(d<bd){bd=d;b=e}}return b}
 function lead(e,time){
   tmp2.set(BASE.x-e.g.position.x,0,BASE.z-e.g.position.z).normalize().multiplyScalar(e.frozen>0||e.stun>0?0:e.sp*time);
@@ -358,9 +361,11 @@ function distToSeg(p,a,b){
 }
 const W_FIRE={
   kanone(tp){
-    const d=R('kanone','dmg'),a=R('kanone','aoe');
-    for(const t of FS.turrets){t.tip.getWorldPosition(tmp);const to=tp.clone().add(jit(.6));
-      shoot({from:tmp,to,dur:tmp.distanceTo(to)/110,onHit:p=>{hitNear(p,a,d);spark(p,0xffd23f,2,4,3)}})}
+    const d=R('kanone','dmg'),a=R('kanone','aoe'),TT=FS.turrets;
+    // mehr Rohre als sichtbare Geschütze: die Kugeln kommen abwechselnd aus den vorhandenen Geschützen
+    const n=FS===FS0?Math.max(TT.length,1+Math.round(R('kanone','twin'))):TT.length,sp=n>TT.length?.6+Math.min(3,n*.05):.6;
+    for(let i=0;i<n;i++){const t=TT[i%TT.length];t.tip.getWorldPosition(tmp);if(i>=TT.length)tmp.add(jit(.5));const to=tp.clone().add(jit(sp));
+      shoot({from:tmp,to,dur:tmp.distanceTo(to)/110*(1+(i/TT.length|0)*.04),onHit:p=>{hitNear(p,a,d);if(i<12||rnd()<.3)spark(p,0xffd23f,2,4,3)}})}
   },
   gatling(tp){
     const TT=FS.turrets;FS.gi=((FS.gi||0)+1)%TT.length;TT[FS.gi].tip.getWorldPosition(tmp);
@@ -1550,11 +1555,12 @@ function updateStructs(dt,t){
 }
 function updateBaseGuns(dt){
   if(!run)return;
-  const dmg=10+run.wave*1.2;
+  const dmg=10+run.wave*1.2,nAll=Math.round(R('basis','turret')),nVis=baseGuns.children.length,per=nVis?Math.max(1,nAll/nVis):1;
   for(const g of baseGuns.children){
     g.userData.cd-=dt;const e=nearestEnemy(BASE,24);if(!e)continue;
     const head=g.userData.head;head.lookAt(e.g.position.x,head.getWorldPosition(tmp).y,e.g.position.z);
-    if(g.userData.cd<=0){g.userData.cd=.5;SFX.sentry(BASE);head.localToWorld(tmp.set(0,0,1));tracer(tmp.clone(),e.g.position.clone().setY(.8),0x9ff3ff);hit(e,dmg)}
+    if(g.userData.cd<=0){g.userData.cd=.5;SFX.sentry(BASE);head.localToWorld(tmp.set(0,0,1));const from=tmp.clone(),sh=Math.floor(per)+(rnd()<per%1?1:0);
+      for(let i=0;i<sh;i++){const tg=i?randEnemyNear(BASE,24)||e:e;if(i<6)tracer(from.clone().add(jit(i?.3:0)),tg.g.position.clone().setY(.8).add(jit(i?.4:0)),0x9ff3ff);hit(tg,dmg)}}
   }
 }
 function updateZones(dt){
@@ -1604,7 +1610,7 @@ function startRun(start,tut=false){
     run.xpMul=1+enchSum('xp');run.dr=Math.min(.5,enchSum('dr'));run.cdMul=1-Math.min(.5,enchSum('cd'))}
   if(run.daily)dailyPost();
   FIELD_K=fieldTargetK(start);FIELD_W=fieldTargetW(start);
-  buildTurrets(1+Math.round(R('kanone','twin')));buildBaseGuns(MP&&MP.role==='guest'?0:Math.round(R('basis','turret')));
+  buildTurrets(Math.min(TWIN_VIS,1+Math.round(R('kanone','twin'))));buildBaseGuns(MP&&MP.role==='guest'?0:Math.min(BGUN_VIS,Math.round(R('basis','turret'))));
   if(!tut){M.runs++;saveMeta()}
   env.t=.16;env.rainT=env.fogT=0;
   $('side').hidden=$('abilBar').hidden=false;$('app').classList.add('inrun');
@@ -1692,7 +1698,7 @@ function showLevelUp(){
   cards.forEach((c,i)=>{
     const b=el('button','card');
     if(c.type==='weapon'){const it=ITEMS[c.id];b.innerHTML=`<span class="ty">Neue Waffe</span><b>${it.name}</b><span>${it.desc}</span>`}
-    else if(c.type==='up'){const it=ITEMS[c.id],st=STAT[c.k],L=metaLv(c.id,c.k)+runLv(run,c.id,c.k);b.innerHTML=`<span class="ty">Gratis-Verbesserung</span><b>${it.name}: ${st.n}</b><span>${fmtStat(c.k,statAt(c.id,c.k,L))} → ${fmtStat(c.k,statAt(c.id,c.k,L+1))}</span>`}
+    else if(c.type==='up'){const it=ITEMS[c.id],st=STAT[c.k],L=metaLv(c.id,c.k)+premLv(c.id,c.k)+runLv(run,c.id,c.k);b.innerHTML=`<span class="ty">Gratis-Verbesserung</span><b>${it.name}: ${st.n}</b><span>${fmtStat(c.k,statAt(c.id,c.k,L))} → ${fmtStat(c.k,statAt(c.id,c.k,L+1))}</span>`}
     else b.innerHTML=`<span class="ty">Bonus</span><b>${fmt(100*run.mult)} Credits</b><span>Für den nächsten Einkauf im Upgrade-Menü.</span>`;
     if(isPC)b.insertAdjacentHTML('beforeend',`<span class="kbd" style="align-self:flex-start">${i+1}</span>`);
     b.onclick=()=>pickLevel(c);box.appendChild(b);
@@ -1707,9 +1713,9 @@ function pickLevel(c){
   if(run.pending>0)showLevelUp();else{halted=false;showOv(null);last=performance.now();if(phase==='shop'&&!run.afk)openRunShop(false)}
 }
 function afterUpgrade(id,k,delta){
-  if(id==='kanone'&&k==='twin')buildTurrets(1+Math.round(R('kanone','twin')));
+  if(id==='kanone'&&k==='twin')buildTurrets(Math.min(TWIN_VIS,1+Math.round(R('kanone','twin'))));
   if(id==='kanone'&&k==='ammo'&&run){const nm=R('kanone','ammo');run.ammo=Math.min(nm,run.ammo+nm-run.ammoMax);run.ammoMax=nm}
-  if(id==='basis'&&k==='turret')buildBaseGuns(Math.round(R('basis','turret')));
+  if(id==='basis'&&k==='turret')buildBaseGuns(Math.min(BGUN_VIS,Math.round(R('basis','turret'))));
   if(id==='basis'&&k==='maxhp'&&run){const mx=R('basis','maxhp');run.hp=Math.min(mx,run.hp+mx*.2/(1+.2*delta))}
   if(id==='basis'&&k==='ring'&&run&&phase==='shop')rebuildRing();
   if(id==='mechunit')refreshMyMechs();
@@ -1835,10 +1841,10 @@ function runCats(){
 function pips(m,r,max){let h='<div class="pips">';for(let i=0;i<max;i++)h+=`<i class="${i<m?'meta':i<m+r?'on':''}"></i>`;return h+'</div>'}
 function statRow(id,k,mode){
   const st=STAT[k],m=metaLv(id,k),r=mode==='run'?runLv(run,id,k):0,max=mode==='run'?st.rMax:st.mMax,cur=mode==='run'?r:m;
-  const L=m+r,full=cur>=max,cost=mode==='run'?runCost(id,k,run):metaCost(id,k);
+  const pl=premLv(id,k),L=m+pl+r,full=cur>=max,cost=mode==='run'?runCost(id,k,run):metaCost(id,k);
   const money=mode==='run'?run.credits:M.medals;
   const row=el('div','row');
-  row.innerHTML=`<div class="nm">${st.n}<span class="lv">Stufe ${cur} / ${max}</span></div>
+  row.innerHTML=`<div class="nm">${st.n}<span class="lv">Stufe ${cur} / ${max}${pl?' · Premium '+pl:''}</span></div>
     <div class="ds">${full?'Maximale Stufe · '+fmtStat(k,statAt(id,k,L)):fmtStat(k,statAt(id,k,L))+' → '+fmtStat(k,statAt(id,k,L+1))}${st.d?' · '+st.d:''}</div>
     ${mode==='run'?pips(m,r,st.mMax+st.rMax):pips(m,0,st.mMax)}`;
   const b=el('button','buy',full?'Max':fmt(cost)+(mode==='run'?' Cr':' Med.'));
@@ -1870,7 +1876,7 @@ $('bNext').onclick=()=>{if(run&&phase==='shop'){if(MP)mpNext();else startWave()}
 $('bRunEnd').onclick=()=>endRun(false);
 
 /* ---------- Menü-Shop ---------- */
-let metaTab='weapon',metaSub='weapon';
+let metaTab='weapon',metaSub='weapon',premSub='weapon';
 const META_TABS_BASE=[['ability','Fähigkeiten'],['weapon','Waffen'],['support','Unterstützung'],['base','Basis'],['upgrade','Verbesserungen'],['inf','Unendlich']];
 let metaCmd='cmd_kom';
 const META_SUBS=[['weapon','Waffen'],['ability','Fähigkeiten'],['support','Unterstützung'],['general','Allgemein']];
@@ -1883,9 +1889,12 @@ function renderMeta(){
   META_TABS.forEach(([k,n])=>{const b=el('button','tab'+(metaTab===k?' on':''),n);b.onclick=()=>{metaTab=k;renderMeta()};tabs.appendChild(b)});
   const sub=$('metaSub');sub.hidden=metaTab!=='upgrade'&&metaTab!=='cmd';sub.innerHTML='';
   if(metaTab==='cmd')CMD_IDS.forEach(k=>{const b=el('button','tab'+(metaCmd===k?' on':''),ITEMS[k].name);b.onclick=()=>{metaCmd=k;renderMeta()};sub.appendChild(b)});
+  sub.style.flexWrap=metaTab==='inf'?'wrap':'';
+  if(metaTab==='inf'){sub.hidden=false;[['inf','Unendlich'],...META_SUBS,['base','Basis'],...(M.rebirths?[['cmd','Kommandanten']]:[])].forEach(([k,n])=>{const b=el('button','tab'+(premSub===k?' on':''),k==='inf'?n:'Premium · '+n);b.onclick=()=>{premSub=k;renderMeta()};sub.appendChild(b)})}
   if(metaTab==='upgrade')META_SUBS.forEach(([k,n])=>{const b=el('button','tab'+(metaSub===k?' on':''),n);b.onclick=()=>{metaSub=k;renderMeta()};sub.appendChild(b)});
   const L=$('metaList');L.innerHTML='';
   if(metaTab==='cmd'){renderCmdTab(L);return}
+  if(metaTab==='inf'&&premSub!=='inf'){renderPrem(L);return}
   if(metaTab==='inf'){
     L.appendChild(el('div','note','Winzige Boni, die du unendlich oft kaufen kannst. Jede Stufe wird teurer. Sie bleiben auch nach einer Wiedergeburt. Andere Upgrades bringen meist mehr.'));
     for(const u of INF){const lv=(M.inf&&M.inf[u.k])|0,cost=infCost(u.k),pc=v=>(Math.round(v*1000)/10).toLocaleString('de-DE')+' %';
@@ -1918,6 +1927,29 @@ function renderMeta(){
     if(!ids.length)L.appendChild(el('div','note','Hier ist noch nichts freigeschaltet.'));
     ids.forEach(id=>{L.appendChild(el('div','grouph',ITEMS[id].name));ITEMS[id].stats.forEach(k=>{if(STAT[k].mMax>0)L.appendChild(statRow(id,k,'meta'))})});
   }
+}
+function renderPrem(L){
+  L.appendChild(el('div','note premnote','Premium-Upgrades setzen die normalen Upgrades über die Höchststufe hinaus fort, so oft du willst. Jede Stufe kostet immer 1.000.000 Medaillen und bleibt auch nach einer Wiedergeburt. Freigeschaltet wird eine Zeile, sobald die normalen Stufen voll sind. Am Schiff werden keine weiteren Geschütze angebaut, du siehst einfach mehr Kugeln.'));
+  let ids=[];
+  if(premSub==='weapon')ids=WEAPON_IDS.filter(i=>M.unlocked[i]);
+  else if(premSub==='ability')ids=ABILITY_IDS.filter(i=>M.unlocked[i]);
+  else if(premSub==='support'){ids=SUPPORT_IDS.filter(i=>M.unlocked[i]);if(M.unlocked.trupp||M.unlocked.kaserne)ids.push('soldat');if(M.unlocked.mech)ids.push('mechunit')}
+  else if(premSub==='base')ids=['basis'];
+  else if(premSub==='cmd')ids=CMD_IDS.filter(i=>M.cmdOwned[i]);
+  else ids=['allg'];
+  if(!ids.length)L.appendChild(el('div','note','Hier ist noch nichts freigeschaltet.'));
+  ids.forEach(id=>{const rows=ITEMS[id].stats.filter(k=>premOk(id,k));if(!rows.length)return;
+    L.appendChild(el('div','grouph',ITEMS[id].name));rows.forEach(k=>L.appendChild(premRow(id,k)))});
+}
+function premRow(id,k){
+  const st=STAT[k],m=metaLv(id,k),p=premLv(id,k),L=m+p,ready=m>=st.mMax;
+  const now=fmtStat(k,statAt(id,k,L)),next=fmtStat(k,statAt(id,k,L+1)),capped=now===next;
+  const row=el('div','row prem');
+  row.innerHTML=`<div class="nm">${st.n}<span class="lv">Premium ${p}</span></div><div class="ds">${capped?'Obergrenze erreicht · '+now:now+' → '+next}${st.d?' · '+st.d:''}</div>`;
+  const b=el('button','buy',!ready?'Erst Stufe '+st.mMax+' / '+st.mMax:capped?'Max':fmt(PREM_COST)+' Med.');
+  b.disabled=!ready||capped||M.medals<PREM_COST;
+  b.onclick=()=>{if(!ready||capped||M.medals<PREM_COST)return;M.medals-=PREM_COST;M.prem=M.prem||{};const kk=lvKey(id,k);M.prem[kk]=(M.prem[kk]||0)+1;saveMeta();SFX.unlockJingle();toast(ITEMS[id].name+': '+st.n+' Premium '+M.prem[kk]);renderMeta()};
+  row.appendChild(b);return row;
 }
 $('bShop').onclick=()=>{renderMeta();showOv('ovMeta')};
 $('bMetaClose').onclick=()=>{renderMenu();showOv('ovMenu')};
